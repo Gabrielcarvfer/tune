@@ -1,0 +1,6 @@
+<resources>
+    <!-- Launcher icon background: the default accent orange -->
+    <color name="launcher_bg">#FFF09609</color>
+    <!-- Shown before the UI draws; matches the theme the app will start in -->
+    <color name="window_bg">#FFFFFFFF</color>
+</resources>

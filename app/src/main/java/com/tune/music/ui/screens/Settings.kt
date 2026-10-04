@@ -1,0 +1,289 @@
+package com.tune.music.ui.screens
+
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import com.tune.music.data.LibraryFolder
+import com.tune.music.data.Organizer
+import android.provider.DocumentsContract
+import com.tune.music.MainViewModel
+import com.tune.music.Screen
+import com.tune.music.ThemeMode
+import com.tune.music.ui.components.MText
+import com.tune.music.ui.components.MetroButton
+import com.tune.music.ui.components.MetroTextBox
+import com.tune.music.ui.components.PageHeader
+import com.tune.music.ui.components.VSpace
+import com.tune.music.ui.components.metroClick
+import com.tune.music.ui.theme.Accents
+import com.tune.music.ui.theme.Metro
+import com.tune.music.ui.theme.MetroType
+
+@Composable
+fun SettingsScreen(vm: MainViewModel, actions: Actions) {
+    val accent by vm.accent.collectAsState()
+    val mode by vm.themeMode.collectAsState()
+    val key by vm.acoustIdKey.collectAsState()
+    val organize by vm.autoOrganize.collectAsState()
+    val lib by vm.library.collectAsState()
+    var keyText by remember { mutableStateOf(key) }
+    val ctx = LocalContext.current
+    val c = Metro.colors
+
+    LazyColumn(
+        Modifier.fillMaxSize().statusBarsPadding().imePadding(),
+        contentPadding = PaddingValues(bottom = 64.dp),
+    ) {
+        item { PageHeader("music", "settings") }
+
+        item { Section("background") }
+        item {
+            Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Choice("system", mode == ThemeMode.SYSTEM) { vm.setThemeMode(ThemeMode.SYSTEM) }
+                Choice("dark", mode == ThemeMode.DARK) { vm.setThemeMode(ThemeMode.DARK) }
+                Choice("light", mode == ThemeMode.LIGHT) { vm.setThemeMode(ThemeMode.LIGHT) }
+            }
+        }
+
+        item { Section("accent colour") }
+        items(Accents.chunked(4)) { row ->
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { (name, color) ->
+                    Column(Modifier.weight(1f).metroClick { vm.setAccent(color) }) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .background(color)
+                                .border(if (color == accent) 3.dp else 0.dp, c.foreground),
+                        )
+                        MText(name, MetroType.small, color = if (color == accent) c.foreground else c.subtle)
+                    }
+                }
+                repeat(4 - row.size) { Box(Modifier.weight(1f)) }
+            }
+        }
+
+        item {
+            val accentTitles by vm.accentTitles.collectAsState()
+            Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                Toggle("accent colour for titles", accentTitles) { vm.setAccentTitles(it) }
+            }
+        }
+
+        item { Section("finding info online") }
+        item {
+            Column(Modifier.padding(horizontal = 24.dp)) {
+                MText(
+                    "Songs are identified by their sound with AcoustID and MusicBrainz, like Picard does. " +
+                        "You need a free AcoustID application API key.",
+                    MetroType.small, color = c.subtle, maxLines = 4,
+                )
+                VSpace(10)
+                MetroTextBox("acoustid api key", keyText, { keyText = it })
+                VSpace(10)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MetroButton("save key", enabled = keyText.trim() != key) {
+                        vm.setAcoustIdKey(keyText)
+                        vm.toast("key saved")
+                    }
+                    MetroButton("get a key") {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://acoustid.org/new-application")))
+                    }
+                }
+            }
+        }
+
+        item { Section("music folder") }
+        item { LibraryFolderSettings(vm) }
+
+        item { Section("organizing files") }
+        item {
+            Column(Modifier.padding(horizontal = 24.dp)) {
+                Toggle("move files after editing info", organize) { vm.setAutoOrganize(it) }
+                MText(
+                    vm.organizeRoot?.let { "$it/<album artist>/<album>/<number>-<title>.<ext>" }
+                        ?: "Unavailable for this music folder: files stay where they are.",
+                    MetroType.small, color = c.subtle, maxLines = 2,
+                )
+                VSpace(12)
+                MetroButton("organize whole collection", enabled = lib.songs.isNotEmpty() && vm.organizeRoot != null) {
+                    actions.organize(lib.songs)
+                }
+            }
+        }
+
+        item { Section("collection") }
+        item {
+            Column(Modifier.padding(horizontal = 24.dp)) {
+                MText("${lib.artists.size} artists • ${lib.albums.size} albums • ${lib.songs.size} songs", MetroType.normal, color = c.subtle)
+                VSpace(10)
+                MetroButton("refresh collection") { vm.reload(); vm.toast("refreshing") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Section(t: String) {
+    MText(t, MetroType.large, modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 10.dp))
+}
+
+@Composable
+private fun Choice(label: String, selected: Boolean, onClick: () -> Unit) {
+    val c = Metro.colors
+    Box(
+        Modifier
+            .background(if (selected) c.accent else androidx.compose.ui.graphics.Color.Transparent)
+            .border(2.dp, if (selected) c.accent else c.foreground)
+            .metroClick(onClick = onClick)
+            .padding(horizontal = 22.dp, vertical = 12.dp),
+    ) { MText(label, MetroType.normal, color = if (selected) androidx.compose.ui.graphics.Color.White else c.foreground) }
+}
+
+/** WP toggle switch: label above, "On/Off" text and a rectangular switch. */
+@Composable
+fun Toggle(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    val c = Metro.colors
+    Column(Modifier.fillMaxWidth().metroClick { onChange(!on) }.padding(vertical = 6.dp)) {
+        MText(label, MetroType.small, color = c.subtle)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            MText(if (on) "On" else "Off", MetroType.large, modifier = Modifier.weight(1f))
+            Box(Modifier.size(width = 76.dp, height = 30.dp).border(2.dp, c.foreground).padding(4.dp)) {
+                Box(
+                    Modifier
+                        .size(width = 44.dp, height = 18.dp)
+                        .align(Alignment.CenterStart)
+                        .background(if (on) c.accent else androidx.compose.ui.graphics.Color.Transparent),
+                )
+                Box(
+                    Modifier
+                        .size(width = 14.dp, height = 30.dp)
+                        .align(if (on) Alignment.CenterEnd else Alignment.CenterStart)
+                        .background(c.foreground),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchScreen(vm: MainViewModel, actions: Actions) {
+    val lib by vm.library.collectAsState()
+    var q by remember { mutableStateOf("") }
+    val needle = q.trim().lowercase()
+    val artists = if (needle.isEmpty()) emptyList() else lib.artists.filter { needle in it.name.lowercase() }.take(5)
+    val albums = if (needle.isEmpty()) emptyList() else lib.albums.filter { needle in it.title.lowercase() || needle in it.artist.lowercase() }.take(10)
+    val songs = if (needle.isEmpty()) emptyList() else lib.songs.filter { needle in it.title.lowercase() || needle in it.artist.lowercase() }.take(50)
+
+    Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
+        PageHeader("music", "search")
+        val focus = LocalFocusManager.current
+        MetroTextBox(
+            null, q, { q = it }, Modifier.padding(horizontal = 24.dp),
+            imeAction = ImeAction.Search, onSubmit = { focus.clearFocus() }, tag = "field:search",
+        )
+        VSpace(8)
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 48.dp)) {
+            if (artists.isNotEmpty()) {
+                item { Section("artists") }
+                items(artists, key = { "a-" + it.name }) { a ->
+                    ArtistRow(a, onLongClick = { actions.artistMenu(a) }) { vm.navigate(Screen.ArtistPage(a.name)) }
+                }
+            }
+            if (albums.isNotEmpty()) {
+                item { Section("albums") }
+                items(albums, key = { "al-" + it.id }) { a ->
+                    AlbumRow(a, onLongClick = { actions.albumMenu(a) }) { vm.navigate(Screen.AlbumPage(a.id)) }
+                }
+            }
+            if (songs.isNotEmpty()) {
+                item { Section("songs") }
+                items(songs, key = { "s-" + it.id }) { s ->
+                    SongRow(s, onLongClick = { actions.songMenu(s) }) { actions.play(listOf(s)) }
+                }
+            }
+            if (needle.isNotEmpty() && artists.isEmpty() && albums.isEmpty() && songs.isEmpty()) {
+                item { EmptyNote("No results.") }
+            }
+        }
+    }
+}
+
+
+/** Which folder the library is read from (and organized into). */
+@Composable
+private fun LibraryFolderSettings(vm: MainViewModel) {
+    val c = Metro.colors
+    val folder by vm.libraryFolder.collectAsState()
+    val allFiles by vm.allFilesAccess.collectAsState()
+    val ctx = LocalContext.current
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) vm.setLibraryFolder(uri)
+    }
+    Column(Modifier.padding(horizontal = 24.dp)) {
+        MText(folder?.label ?: "whole phone", MetroType.large, maxLines = 2, modifier = Modifier.testTag("library:folder"))
+        MText(
+            when {
+                folder == null -> "Songs anywhere on the phone are in your collection. Organized files are moved into Music."
+                vm.organizeRoot != null ->
+                    "Only songs in this folder and its subfolders are in your collection. Organized files stay inside it."
+                else -> "Only songs in this folder and its subfolders are in your collection. " +
+                    "Files here are never moved: to organize inside this folder, allow all files access."
+            },
+            MetroType.small, color = c.subtle, maxLines = 4,
+        )
+        VSpace(12)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            MetroButton("choose folder") {
+                val start = folder?.takeIf { it.isPrimary }?.relativePath ?: Organizer.MUSIC_DIR
+                picker.launch(DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:$start"))
+            }
+            MetroButton("whole phone", enabled = folder != null) { vm.setLibraryFolder(null as LibraryFolder?) }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && folder != null && !folder!!.canOrganizeInto) {
+            VSpace(12)
+            if (allFiles) {
+                MText("All files access: allowed", MetroType.small, color = c.subtle)
+            } else {
+                MetroButton("allow all files access") {
+                    ctx.startActivity(
+                        Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${ctx.packageName}")),
+                    )
+                }
+            }
+        }
+    }
+}

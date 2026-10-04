@@ -1,0 +1,11 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+cmake-build-*/
+.cxx/
+*.log
+# Private launcher name/icon overrides (see README)
+/branding/

@@ -96,8 +96,8 @@ class MetadataTest : TuneTest() {
         waitFor("files moved") { dir.list()?.toSet() == expected && pathOf("Gamma Song").startsWith(dir.path) }
         assertEquals("Beta (Live)", tagsOf("Beta Song")[TagLib.TITLE])
         assertEquals("7", tagsOf("Gamma Song")[TagLib.TRACK])
-        // The album's old folder is gone; its parent still holds the other album.
-        assertFalse(File(music, "${TestMedia.IN_DIR}/${TestMedia.ALBUM}").exists())
+        // The album's old folder is removed after the move; its parent still holds the other album.
+        waitFor("old album folder removed") { !File(music, "${TestMedia.IN_DIR}/${TestMedia.ALBUM}").exists() }
         assertTrue(File(music, "${TestMedia.IN_DIR}/${TestMedia.SINGLE}").exists())
     }
 
@@ -127,7 +127,8 @@ class MetadataTest : TuneTest() {
 
         assertTrue(pathOf("Alpha Song").endsWith("/Music/${TestMedia.BAND}/${TestMedia.ALBUM}/01-Alpha Song.m4a"))
         assertTrue(pathOf("Delta Tune").endsWith("/Music/${TestMedia.SOLO}/${TestMedia.SINGLE}/01-Delta Tune.m4a"))
-        assertFalse("input folder tree removed", File(music, TestMedia.IN_DIR).exists())
+        // Emptied folders are removed after the moves.
+        waitFor("input folder tree removed") { !File(music, TestMedia.IN_DIR).exists() }
 
         // Running it again finds nothing to do (once the app has reloaded its library).
         waitFor("library reloaded") { vm.songsToOrganize(vm.library.value.songs.filter { it.title in uris.keys }).isEmpty() }

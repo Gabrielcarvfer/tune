@@ -86,7 +86,7 @@ class SyncedFolderTest : TuneTest() {
         waitFor("still in the library at the new path") {
             vm.library.value.songs.any { it.id == id && it.path == dst.path }
         }
-        assertTrue("emptied folder removed", !File(synced, "incoming").exists())
+        waitFor("emptied folder removed") { !File(synced, "incoming").exists() }
         assertTrue("library folder kept", synced.isDirectory)
     }
 }

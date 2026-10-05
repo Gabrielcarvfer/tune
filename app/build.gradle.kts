@@ -29,14 +29,6 @@ android {
     }
     ndkVersion = "27.2.12479018"
 
-    // Optional private branding: if <repo>/branding/res exists (it's git-ignored),
-    // its resources override the launcher name and icon in your own builds.
-    val branding = rootProject.file("branding/res")
-    if (branding.isDirectory) {
-        sourceSets.getByName("debug").res.srcDir(branding)
-        sourceSets.getByName("release").res.srcDir(branding)
-    }
-
     // Release signing for store uploads, from the environment (CI secrets).
     // Without it, release builds are unsigned.
     val keystore = System.getenv("TUNE_KEYSTORE")

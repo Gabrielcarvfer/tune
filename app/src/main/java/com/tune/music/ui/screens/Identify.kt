@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -29,19 +31,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.ImeAction
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.tune.music.MainViewModel
 import com.tune.music.Screen
 import com.tune.music.data.CoverImage
+import com.tune.music.data.MusicBrainz
 import com.tune.music.data.ReleaseCandidate
 import com.tune.music.ui.components.AlbumArt
 import com.tune.music.ui.components.AppBarButton
 import com.tune.music.ui.components.MText
 import com.tune.music.ui.components.MTextEllipsis
 import com.tune.music.ui.components.MetroButton
+import com.tune.music.ui.components.MetroTextBox
 import com.tune.music.ui.components.PageHeader
 import com.tune.music.ui.components.ProgressDots
 import com.tune.music.ui.components.RemoteArt
@@ -52,7 +59,8 @@ import com.tune.music.ui.theme.MetroType
 
 /**
  * Picard-style matching: fingerprint the songs, list the MusicBrainz releases
- * they appear on, then let the user pick the release and its cover.
+ * they appear on, then let the user pick the release and its cover. Releases
+ * can also be searched by name (no AcoustID key needed for that).
  */
 @Composable
 fun IdentifyScreen(vm: MainViewModel, songIds: List<Long>, albumId: Long?) {
@@ -63,30 +71,29 @@ fun IdentifyScreen(vm: MainViewModel, songIds: List<Long>, albumId: Long?) {
     var error by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf<List<ReleaseCandidate>?>(null) }
     var chosen by remember { mutableStateOf<ReleaseCandidate?>(null) }
+    var byName by remember { mutableStateOf(key.isEmpty()) }
 
-    val title = if (albumId != null) "find album info" else "find song info"
-
-    if (key.isEmpty()) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            PageHeader("music", title)
-            EmptyNote("Identifying music uses AcoustID. Get a free API key at acoustid.org/new-application and enter it in settings.")
-            MetroButton("open settings", Modifier.padding(horizontal = 24.dp)) { vm.navigate(Screen.Settings) }
-        }
-        return
-    }
-
-    LaunchedEffect(songIds, key) {
-        error = null
-        results = runCatching {
-            vm.identifySongs(songs) { d, _ -> done = d }
-        }.onFailure { error = it.message ?: it.toString() }.getOrNull()
-    }
+    val title = if (albumId != null || songIds.size > 1) "find album info" else "find song info"
 
     val c = chosen
     if (c != null) {
         BackHandler { chosen = null }
-        ReleaseDetail(vm, songs, c, albumId) { chosen = null }
+        ReleaseDetail(vm, songs, c, albumId, onBack = { chosen = null })
         return
+    }
+
+    if (byName) {
+        if (key.isNotEmpty()) BackHandler { byName = false }
+        NameSearch(vm, songs, title, noKey = key.isEmpty(), onListen = if (key.isEmpty()) null else ({ byName = false })) { chosen = it }
+        return
+    }
+
+    LaunchedEffect(songIds, key) {
+        if (results != null) return@LaunchedEffect
+        error = null
+        results = runCatching {
+            vm.identifySongs(songs) { d, _ -> done = d }
+        }.onFailure { error = it.message ?: it.toString() }.getOrNull()
     }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -107,18 +114,115 @@ fun IdentifyScreen(vm: MainViewModel, songIds: List<Long>, albumId: Long?) {
                 MText("${r.size} releases found. Pick the one you own.", MetroType.small, color = Metro.colors.subtle,
                     modifier = Modifier.padding(horizontal = 24.dp))
                 VSpace(8)
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 48.dp)) {
-                    items(r, key = { it.releaseId }) { rel ->
-                        ReleaseRow(rel, songs.size) { chosen = rel }
-                    }
-                }
+            }
+        }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 48.dp)) {
+            items(r.orEmpty(), key = { it.releaseId }) { rel ->
+                ReleaseRow(rel.coverThumb, rel.album, rel.albumArtist, releaseFacts(rel.year, rel.country, rel.format, rel.type, rel.trackCount, rel.discCount),
+                    if (songs.size > 1) rel.tracks.size to songs.size else null) { chosen = rel }
+            }
+            item {
+                VSpace(16)
+                MText("Not the right edition?", MetroType.small, color = Metro.colors.subtle, modifier = Modifier.padding(horizontal = 24.dp))
+                VSpace(8)
+                MetroButton("search by name", Modifier.padding(horizontal = 24.dp)) { byName = true }
             }
         }
     }
 }
 
+/** Searching MusicBrainz releases by album and artist name. */
 @Composable
-private fun ReleaseRow(rel: ReleaseCandidate, songCount: Int, onClick: () -> Unit) {
+private fun NameSearch(
+    vm: MainViewModel,
+    songs: List<com.tune.music.data.Song>,
+    title: String,
+    noKey: Boolean,
+    onListen: (() -> Unit)?,
+    onChoose: (ReleaseCandidate) -> Unit,
+) {
+    val first = songs.firstOrNull()
+    var album by remember { mutableStateOf(songs.groupingBy { it.album }.eachCount().maxByOrNull { it.value }?.key ?: first?.album.orEmpty()) }
+    var artist by remember { mutableStateOf(songs.groupingBy { it.albumArtist }.eachCount().maxByOrNull { it.value }?.key ?: first?.albumArtist.orEmpty()) }
+    var results by remember { mutableStateOf<List<MusicBrainz.Found>?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val list = rememberLazyListState()
+
+    fun search() {
+        if (busy || album.isBlank()) return
+        scope.launch {
+            busy = true
+            error = null
+            results = runCatching { vm.searchReleases(album, artist) }.onFailure { error = it.message ?: it.toString() }.getOrNull()
+            busy = false
+            // Bring the form and the results under it into view.
+            list.animateScrollToItem(if (noKey) 1 else 0)
+        }
+    }
+
+    fun open(found: MusicBrainz.Found) {
+        if (busy) return
+        scope.launch {
+            busy = true
+            error = null
+            runCatching { vm.matchRelease(found, songs) }
+                .onSuccess(onChoose)
+                .onFailure { error = it.message ?: it.toString() }
+            busy = false
+        }
+    }
+
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        PageHeader("music", title)
+        LazyColumn(Modifier.fillMaxSize().imePadding(), state = list, contentPadding = PaddingValues(bottom = 48.dp)) {
+            if (noKey) item {
+                EmptyNote("Identifying music by its sound uses AcoustID. Get a free API key at acoustid.org/new-application and enter it in settings.")
+                MetroButton("open settings", Modifier.padding(horizontal = 24.dp)) { vm.navigate(Screen.Settings) }
+                VSpace(16)
+                MText("Or search MusicBrainz by name:", MetroType.normal, color = Metro.colors.subtle, modifier = Modifier.padding(horizontal = 24.dp))
+                VSpace(8)
+            }
+            item {
+                Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MetroTextBox("album", album, { album = it })
+                    MetroTextBox("artist", artist, { artist = it }, imeAction = ImeAction.Search, onSubmit = { search() })
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // The main action last, where the eye ends up.
+                        if (onListen != null) MetroButton("listen instead") { onListen() }
+                        MetroButton("search", enabled = album.isNotBlank() && !busy) { search() }
+                    }
+                }
+                VSpace(12)
+                val r = results
+                when {
+                    busy -> ProgressDots()
+                    error != null -> EmptyNote("Couldn't search: $error")
+                    r == null -> {}
+                    r.isEmpty() -> EmptyNote("No releases found on MusicBrainz.")
+                    else -> MText("${r.size} releases found. Pick the one you own.", MetroType.small, color = Metro.colors.subtle,
+                        modifier = Modifier.padding(horizontal = 24.dp))
+                }
+            }
+            items(results.orEmpty(), key = { it.id }) { f ->
+                ReleaseRow(f.coverThumb, f.title, f.artist, releaseFacts(f.year, f.country, f.format, f.type, f.trackCount, f.discCount), null) { open(f) }
+            }
+        }
+    }
+}
+
+fun releaseFacts(year: Int, country: String, format: String, type: String, trackCount: Int, discCount: Int): String =
+    listOf(
+        year.takeIf { it > 0 }?.toString(),
+        country.ifEmpty { null },
+        format.ifEmpty { null },
+        type.ifEmpty { null }?.lowercase(),
+        "$trackCount tracks" + if (discCount > 1) " / $discCount discs" else "",
+    ).filterNotNull().joinToString(" • ")
+
+@Composable
+fun ReleaseRow(cover: String, album: String, artist: String, facts: String, matched: Pair<Int, Int>?, onClick: () -> Unit) {
     val c = Metro.colors
     Row(
         Modifier
@@ -127,35 +231,28 @@ private fun ReleaseRow(rel: ReleaseCandidate, songCount: Int, onClick: () -> Uni
             .padding(horizontal = 24.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        RemoteArt(rel.coverThumb, Modifier.size(84.dp))
+        RemoteArt(cover, Modifier.size(84.dp))
         Column(Modifier.weight(1f)) {
-            MTextEllipsis(rel.album, MetroType.medium)
-            MTextEllipsis(rel.albumArtist, MetroType.normal, color = c.subtle)
-            MTextEllipsis(
-                listOf(
-                    rel.year.takeIf { it > 0 }?.toString(),
-                    rel.country.ifEmpty { null },
-                    rel.format.ifEmpty { null },
-                    rel.type.ifEmpty { null }?.lowercase(),
-                    "${rel.trackCount} tracks" + if (rel.discCount > 1) " / ${rel.discCount} discs" else "",
-                ).filterNotNull().joinToString(" • "),
-                MetroType.small, color = c.subtle,
-            )
-            if (songCount > 1) {
-                MText("matches ${rel.tracks.size} of $songCount songs", MetroType.small,
-                    color = if (rel.tracks.size == songCount) c.accent else c.subtle)
+            MTextEllipsis(album, MetroType.medium)
+            MTextEllipsis(artist, MetroType.normal, color = c.subtle)
+            MTextEllipsis(facts, MetroType.small, color = c.subtle)
+            if (matched != null) {
+                val (n, of) = matched
+                MText("matches $n of $of songs", MetroType.small, color = if (n == of) c.accent else c.subtle)
             }
         }
     }
 }
 
 @Composable
-private fun ReleaseDetail(
+fun ReleaseDetail(
     vm: MainViewModel,
     songs: List<com.tune.music.data.Song>,
     rel: ReleaseCandidate,
     albumId: Long?,
     onBack: () -> Unit,
+    // Album may have been re-keyed by MediaStore; by default go back past the editor.
+    onApplied: () -> Unit = { vm.back() },
 ) {
     var covers by remember(rel.releaseId) { mutableStateOf<List<CoverImage>?>(null) }
     // null = keep the current cover
@@ -169,10 +266,7 @@ private fun ReleaseDetail(
     BarPage(
         listOf(
             AppBarButton(Icons.Filled.Check, "apply") {
-                vm.applyRelease(songs, rel, cover) {
-                    // Album may have been re-keyed by MediaStore; go back past the editor.
-                    vm.back()
-                }
+                vm.applyRelease(songs, rel, cover) { onApplied() }
             },
             AppBarButton(Icons.Filled.Close, "back") { onBack() },
         ),

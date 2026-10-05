@@ -140,17 +140,48 @@ private class TrackRow(val song: Song, title: String, track: String) {
 fun EditAlbumScreen(vm: MainViewModel, actions: Actions, id: Long) {
     val lib by vm.library.collectAsState()
     val album = lib.album(id) ?: return
-    val album0 = remember(album.id) { album.title }
-    var title by remember { mutableStateOf(album.title) }
-    var artist by remember { mutableStateOf(album.artist) }
-    val genre0 = album.songs.first().genre.takeIf { it != "unknown" }.orEmpty()
-    var genre by remember { mutableStateOf(genre0) }
-    val year0 = album.year.takeIf { it > 0 }?.toString().orEmpty()
-    var year by remember { mutableStateOf(year0) }
-    var art by remember { mutableStateOf<Pair<ByteArray, String>?>(null) }
-    val rows = remember(album.id) {
+    AlbumEditor(vm, actions, album.songs, album.title, album.artist, album.year, album.id, merging = false)
+}
+
+/** Several albums' songs, edited as one album (the "merge albums" editor). */
+@Composable
+fun EditAsAlbumScreen(vm: MainViewModel, actions: Actions, songIds: List<Long>) {
+    val lib by vm.library.collectAsState()
+    val songs = remember(songIds) { songIds.mapNotNull { lib.song(it) } }
+    if (songs.isEmpty()) return
+    // Start from the album most of the songs are on.
+    val main = remember(songIds) { songs.groupBy { it.albumId }.maxBy { it.value.size }.value.first() }
+    AlbumEditor(vm, actions, songs, main.album, main.albumArtist, songs.maxOf { it.year }, main.albumId, merging = true)
+}
+
+/**
+ * The album editor. When [merging], the album, album artist and year are
+ * written to every song (they come from different albums); otherwise only
+ * fields that were changed are written.
+ */
+@Composable
+private fun AlbumEditor(
+    vm: MainViewModel,
+    actions: Actions,
+    songs: List<Song>,
+    title0: String,
+    artist0: String,
+    year0Int: Int,
+    artAlbumId: Long,
+    merging: Boolean,
+) {
+    val key = songs.first().id
+    val album0 = remember(key) { title0 }
+    var title by remember(key) { mutableStateOf(title0) }
+    var artist by remember(key) { mutableStateOf(artist0) }
+    val genre0 = songs.first().genre.takeIf { it != "unknown" }.orEmpty()
+    var genre by remember(key) { mutableStateOf(genre0) }
+    val year0 = year0Int.takeIf { it > 0 }?.toString().orEmpty()
+    var year by remember(key) { mutableStateOf(year0) }
+    var art by remember(key) { mutableStateOf<Pair<ByteArray, String>?>(null) }
+    val rows = remember(key) {
         mutableStateListOf<TrackRow>().apply {
-            album.songs.forEach { add(TrackRow(it, it.title, if (it.track > 0) it.track.toString() else "")) }
+            songs.forEach { add(TrackRow(it, it.title, if (it.track > 0) it.track.toString() else "")) }
         }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -162,13 +193,14 @@ fun EditAlbumScreen(vm: MainViewModel, actions: Actions, id: Long) {
             AppBarButton(Icons.Filled.Check, "save") {
                 val edits = rows.associate { r ->
                     val s = r.song
+                    val ownYear = if (s.year > 0) s.year.toString() else ""
                     r.song to TagEdit(
                         title = changed(r.title, s.title),
                         track = changed(r.track, if (s.track > 0) s.track.toString() else ""),
-                        album = changed(title, album0),
+                        album = if (merging) changed(title, s.album) else changed(title, album0),
                         albumArtist = changed(artist, s.albumArtist),
                         genre = changed(genre, genre0),
-                        year = changed(year, year0),
+                        year = if (merging) changed(year, ownYear) else changed(year, year0),
                         artwork = art?.first,
                         artworkMime = art?.second,
                     )
@@ -176,14 +208,18 @@ fun EditAlbumScreen(vm: MainViewModel, actions: Actions, id: Long) {
                 if (edits.isEmpty()) vm.back() else vm.saveTags(edits) { vm.back() }
             },
             AppBarButton(Icons.Filled.TravelExplore, "find online") {
-                vm.navigate(Screen.Identify(album.songs.map { it.id }, album.id))
+                vm.navigate(Screen.Identify(rows.map { it.song.id }, if (merging) null else artAlbumId))
             },
             AppBarButton(Icons.Filled.Close, "cancel") { vm.back() },
         ),
-        listOf(MenuItem("organize files") { actions.organize(album.songs) }),
+        listOfNotNull(
+            if (merging) MenuItem("number tracks in order") { rows.forEachIndexed { i, r -> r.track = (i + 1).toString() } } else null,
+            MenuItem("organize files") { actions.organize(rows.map { it.song }) },
+        ),
     ) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            PageHeader("edit album info", album.title)
+            if (merging) PageHeader("merge albums", "${songs.map { it.albumId }.distinct().size} albums as one")
+            else PageHeader("edit album info", title0)
             LazyColumn(
                 Modifier.fillMaxSize().imePadding(),
                 contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 48.dp),
@@ -196,7 +232,7 @@ fun EditAlbumScreen(vm: MainViewModel, actions: Actions, id: Long) {
                         }) {
                             val a = art
                             if (a != null) AsyncImage(a.first, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                            else AlbumArt(album.id, album.songs.first().uri, Modifier.fillMaxSize())
+                            else AlbumArt(artAlbumId, songs.first().uri, Modifier.fillMaxSize())
                         }
                         Column {
                             MText("cover", MetroType.small, color = Metro.colors.subtle)

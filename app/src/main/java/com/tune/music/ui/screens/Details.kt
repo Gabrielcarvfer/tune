@@ -114,6 +114,7 @@ fun AlbumScreen(vm: MainViewModel, actions: Actions, id: Long) {
         listOf(
             MenuItem("edit album info") { vm.navigate(Screen.EditAlbum(album.id)) },
             MenuItem("find album info online") { vm.navigate(Screen.Identify(album.songs.map { it.id }, album.id)) },
+            MenuItem("merge with other albums") { vm.navigate(Screen.MergeAlbums(album.id)) },
             MenuItem("organize files") { actions.organize(album.songs) },
             MenuItem("add to now playing") { vm.player.enqueue(album.songs) },
             MenuItem("add to playlist") { actions.addToPlaylist(album.songs) },

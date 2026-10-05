@@ -102,6 +102,7 @@ class Actions(val vm: MainViewModel, val overlays: Overlays) {
                 MenuItem("add to playlist") { addToPlaylist(album.songs) },
                 MenuItem("edit album info") { vm.navigate(Screen.EditAlbum(album.id)) },
                 MenuItem("find album info online") { vm.navigate(Screen.Identify(album.songs.map { it.id }, album.id)) },
+                MenuItem("merge with other albums") { vm.navigate(Screen.MergeAlbums(album.id)) },
                 MenuItem("organize files") { organize(album.songs) },
                 MenuItem("delete") { delete(album.songs, "album") },
             ),

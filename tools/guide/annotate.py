@@ -40,14 +40,18 @@ def badge_spot(box, others, taken, w, h, side=None):
     cx, cy = (l + r) / 2, (t + b) / 2
     room = BADGE_R + 12
     edge_x = min(r - BADGE_R, w - room)
-    named = {"left": (l - GAP, cy), "right": (r + GAP, cy), "above": (cx, t - GAP), "below": (cx, b + GAP)}
+    # A side may carry its own distance, e.g. "right:420", to clear a neighbour.
+    gap = GAP
+    if side and ":" in side:
+        side, gap = side.split(":")[0], int(side.split(":")[1])
+    named = {"left": (l - gap, cy), "right": (r + gap, cy), "above": (cx, t - gap), "below": (cx, b + gap)}
     spots = [
         named["left"], named["right"],
         (edge_x, t - GAP), (edge_x, b + GAP),
         named["above"], named["below"],
     ]
-    if side in named:  # the screenshot asked for this side
-        spots.insert(0, named[side])
+    if side in named:  # the screenshot asked for this side: it wins
+        return named[side]
     best, best_score = None, None
     for rank, (x, y) in enumerate(spots):
         if not (room <= x <= w - room and room <= y <= h - room):

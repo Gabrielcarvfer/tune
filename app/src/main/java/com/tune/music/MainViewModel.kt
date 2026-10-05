@@ -19,13 +19,17 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tune.music.data.AcoustId
 import com.tune.music.data.Album
+import com.tune.music.data.Consolidator
 import com.tune.music.data.CoverImage
 import com.tune.music.data.Library
 import com.tune.music.data.LibraryFolder
 import com.tune.music.data.Organizer
 import com.tune.music.data.ReleaseCandidate
 import com.tune.music.data.TrackMatch
+import com.tune.music.data.MatchCache
 import com.tune.music.data.MediaRepository
+import com.tune.music.data.MusicBrainz
+import com.tune.music.data.Net
 import com.tune.music.data.PlaylistStore
 import com.tune.music.data.Song
 import com.tune.music.data.TagEdit
@@ -34,6 +38,7 @@ import com.tune.music.data.TagValues
 import com.tune.music.playback.PlayerConnection
 import com.tune.music.ui.theme.Accents
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -60,8 +65,14 @@ sealed interface Screen {
     data class EditAlbum(val id: Long) : Screen
     data object Search : Screen
     data object Settings : Screen
-    /** AcoustID/MusicBrainz matching for one song, or a whole album. */
+    /** AcoustID/MusicBrainz matching for one song, a whole album, or merged albums. */
     data class Identify(val songIds: List<Long>, val albumId: Long?) : Screen
+    /** Choosing albums to merge, starting from one. */
+    data class MergeAlbums(val firstAlbumId: Long) : Screen
+    /** Editing several albums' songs as one album. */
+    data class EditAsAlbum(val songIds: List<Long>) : Screen
+    /** Scanning the collection and merging albums split across releases. */
+    data object Consolidate : Screen
 }
 
 private const val TAG = "Tune"
@@ -70,7 +81,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = MediaRepository(app)
     private val tags = TagEditor(app)
     private val organizer = Organizer(app, tags)
-    val acoustId = AcoustId(app)
+    /** Saved fingerprints and AcoustID answers, so songs are looked up once. */
+    val matchCache = MatchCache(java.io.File(app.filesDir, "acoustid"))
+    val acoustId = AcoustId(app, matchCache)
     private val prefs = app.getSharedPreferences("tune", Context.MODE_PRIVATE)
 
     val playlists = PlaylistStore(app)
@@ -92,14 +105,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Follow the system dark mode, or force dark / light. */
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
+    private val _offline = MutableStateFlow(prefs.getBoolean("offline", false).also { Net.blocked = it })
+    /** The network kill switch: while on, Tune makes no web requests at all. */
+    val offline: StateFlow<Boolean> = _offline.asStateFlow()
+
+    fun setOffline(on: Boolean) {
+        Net.blocked = on
+        _offline.value = on
+        prefs.edit().putBoolean("offline", on).apply()
+        if (on) stopScan()
+    }
+
     private val _apiKey = MutableStateFlow(prefs.getString("acoustid", "").orEmpty())
     val acoustIdKey: StateFlow<String> = _apiKey.asStateFlow()
 
-    private val _autoOrganize = MutableStateFlow(prefs.getBoolean("organize", true))
-    /** Move files into Music/<album artist>/<album>/ after their info is saved. */
+    // Until the user decides, files are only moved after saving when they chose a music folder.
+    private val _autoOrganize = MutableStateFlow(prefs.getBoolean("organize", prefs.contains("libraryFolder")))
+    /** Move files into <music folder>/<album artist>/<album>/ after their info is saved. */
     val autoOrganize: StateFlow<Boolean> = _autoOrganize.asStateFlow()
 
-    private val _accentTitles = MutableStateFlow(prefs.getBoolean("accentTitles", false))
+    private val _accentTitles = MutableStateFlow(prefs.getBoolean("accentTitles", true))
     /** Draw page titles and headers in the accent colour. */
     val accentTitles: StateFlow<Boolean> = _accentTitles.asStateFlow()
 
@@ -109,7 +134,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** The folder the library is read from; null means the whole phone. */
     val libraryFolder: StateFlow<LibraryFolder?> = _libraryFolder.asStateFlow()
 
-    private val _albumGrid = MutableStateFlow(prefs.getBoolean("albumGrid", false))
+    private val _albumGrid = MutableStateFlow(prefs.getBoolean("albumGrid", true))
     /** Show albums as a grid of covers instead of a detailed list. */
     val albumGrid: StateFlow<Boolean> = _albumGrid.asStateFlow()
 
@@ -246,6 +271,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setLibraryFolder(folder: LibraryFolder?) {
         _libraryFolder.value = folder
         prefs.edit().apply { if (folder == null) remove("libraryFolder") else putString("libraryFolder", folder.absolutePath) }.apply()
+        // The default follows the folder choice until the user sets it.
+        if (!prefs.contains("organize")) _autoOrganize.value = folder != null
         reload()
     }
 
@@ -385,11 +412,118 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- identification (AcoustID + MusicBrainz) --------------------------
 
+    /**
+     * Releases for [songs], best first: the ones holding the most of these songs,
+     * then the ones holding the most of the rest of the collection (from saved
+     * lookups), so a song goes to the edition its companions are on rather than
+     * to whichever release its own lookup happened to rank first.
+     */
     suspend fun identifySongs(songs: List<Song>, progress: (Int, Int) -> Unit): List<ReleaseCandidate> {
         val key = _apiKey.value
         require(key.isNotEmpty()) { "set your AcoustID API key in settings" }
-        return acoustId.identifyAlbum(songs, key, progress)
+        val found = acoustId.identifyAlbum(songs, key, progress)
+        val inLibrary = libraryReleaseCounts()
+        return found.sortedWith(
+            compareByDescending<ReleaseCandidate> { it.tracks.size }
+                .thenByDescending { inLibrary[it.releaseId] ?: 0 }
+                .thenByDescending { it.score },
+        )
     }
+
+    private var releaseCounts: Pair<Long, Map<String, Int>>? = null
+
+    /** How many songs of the collection each release holds, from the saved lookups. */
+    private suspend fun libraryReleaseCounts(): Map<String, Int> = withContext(Dispatchers.IO) {
+        val version = matchCache.version + 31 * _library.value.version
+        releaseCounts?.takeIf { it.first == version }?.second ?: run {
+            val counts = HashMap<String, Int>()
+            libraryMatches().values.forEach { list -> list.map { it.releaseId }.distinct().forEach { counts[it] = (counts[it] ?: 0) + 1 } }
+            releaseCounts = version to counts
+            counts
+        }
+    }
+
+    /** Every saved AcoustID answer for the collection, by song id. */
+    private fun libraryMatches(): Map<Long, List<TrackMatch>> =
+        _library.value.songs.mapNotNull { s -> matchCache.lookup(s)?.let { s.id to AcoustId.parse(it) } }.toMap()
+
+    // --- scanning the collection --------------------------------------------
+
+    data class ScanState(val running: Boolean = false, val done: Int = 0, val total: Int = 0, val failed: Int = 0, val error: String? = null)
+
+    private val _scan = MutableStateFlow(ScanState())
+    /** Progress of "scan collection": fingerprinting and looking up every song once. */
+    val scan: StateFlow<ScanState> = _scan.asStateFlow()
+    private var scanJob: kotlinx.coroutines.Job? = null
+
+    /** Songs in the collection with a saved AcoustID answer. */
+    suspend fun scannedCount(): Int = withContext(Dispatchers.IO) { matchCache.countLooked(_library.value.songs) }
+
+    /**
+     * Fingerprints and looks up every song that has no saved answer yet (in
+     * path order), one at a time within the services' rate limits.
+     */
+    fun scanCollection() {
+        if (scanJob?.isActive == true) return
+        val key = _apiKey.value
+        if (key.isEmpty()) return toast("set your AcoustID API key first")
+        if (_offline.value) return toast("web requests are turned off")
+        scanJob = viewModelScope.launch {
+            val todo = withContext(Dispatchers.IO) {
+                _library.value.songs.sortedBy { it.path }.filter { matchCache.lookup(it) == null }
+            }
+            _scan.value = ScanState(running = true, total = todo.size)
+            var failed = 0
+            var inARow = 0
+            for ((i, song) in todo.withIndex()) {
+                try {
+                    acoustId.lookupSong(song, key)
+                    inARow = 0
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.w(TAG, "can't identify ${song.path}", e)
+                    failed++
+                    inARow++
+                    // AcoustID refusing (say, a bad key) or no network would fail every song: stop.
+                    if (e is com.tune.music.data.OfflineException || e.message?.startsWith("acoustid:") == true || inARow >= 5) {
+                        _scan.value = _scan.value.copy(running = false, done = i + 1, failed = failed, error = e.message ?: e.toString())
+                        return@launch
+                    }
+                }
+                _scan.value = _scan.value.copy(done = i + 1, failed = failed)
+            }
+            _scan.value = _scan.value.copy(running = false)
+        }
+    }
+
+    fun stopScan() {
+        scanJob?.cancel()
+        _scan.value = _scan.value.copy(running = false)
+    }
+
+    /** Forgets every saved fingerprint and answer (the next scan starts over). */
+    fun clearScan() {
+        stopScan()
+        viewModelScope.launch(Dispatchers.IO) {
+            matchCache.clear()
+            _scan.value = ScanState()
+        }
+    }
+
+    /** Albums split across one release, from the saved answers; biggest first. */
+    suspend fun consolidationProposals(): List<Consolidator.Proposal> = withContext(Dispatchers.IO) {
+        val lib = _library.value
+        Consolidator.propose(lib.songs, libraryMatches(), { it.albumId }, { lib.album(it)?.title ?: "?" })
+    }
+
+    // --- MusicBrainz search by name -----------------------------------------
+
+    suspend fun searchReleases(album: String, artist: String): List<MusicBrainz.Found> = MusicBrainz.search(album, artist)
+
+    /** The release's tracks, paired with [songs] by title, length and position. */
+    suspend fun matchRelease(found: MusicBrainz.Found, songs: List<Song>): ReleaseCandidate =
+        MusicBrainz.match(songs, MusicBrainz.release(found.id))
 
     suspend fun covers(c: ReleaseCandidate): List<CoverImage> = acoustId.covers(c.releaseId, c.releaseGroupId)
 

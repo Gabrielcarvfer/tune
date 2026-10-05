@@ -71,6 +71,9 @@ import com.tune.music.ui.components.VSpace
 import com.tune.music.ui.components.metroClick
 import com.tune.music.ui.components.topDivider
 import com.tune.music.ui.screens.Actions
+import com.tune.music.ui.screens.ConsolidateScreen
+import com.tune.music.ui.screens.EditAsAlbumScreen
+import com.tune.music.ui.screens.MergeAlbumsScreen
 import com.tune.music.ui.screens.AlbumScreen
 import com.tune.music.ui.screens.ArtistScreen
 import com.tune.music.ui.screens.CollectionScreen
@@ -247,6 +250,9 @@ private fun ScreenContent(s: Screen, vm: MainViewModel, actions: Actions) {
         is Screen.EditSong -> EditSongScreen(vm, actions, s.id)
         is Screen.EditAlbum -> EditAlbumScreen(vm, actions, s.id)
         is Screen.Identify -> IdentifyScreen(vm, s.songIds, s.albumId)
+        is Screen.MergeAlbums -> MergeAlbumsScreen(vm, s.firstAlbumId)
+        is Screen.EditAsAlbum -> EditAsAlbumScreen(vm, actions, s.songIds)
+        Screen.Consolidate -> ConsolidateScreen(vm)
         Screen.Search -> SearchScreen(vm, actions)
         Screen.Settings -> SettingsScreen(vm, actions)
     }

@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -103,6 +104,19 @@ fun SettingsScreen(vm: MainViewModel, actions: Actions) {
             }
         }
 
+        item { Section("network") }
+        item {
+            val offline by vm.offline.collectAsState()
+            Column(Modifier.padding(horizontal = 24.dp)) {
+                Toggle("network kill switch", offline) { vm.setOffline(it) }
+                MText(
+                    if (offline) "On: Tune makes no web requests at all. Finding info online, scanning and remote covers are off."
+                    else "Tune only goes online when you use finding info online. Turn this on to make sure it never does.",
+                    MetroType.small, color = c.subtle, maxLines = 3,
+                )
+            }
+        }
+
         item { Section("finding info online") }
         item {
             Column(Modifier.padding(horizontal = 24.dp)) {
@@ -122,6 +136,21 @@ fun SettingsScreen(vm: MainViewModel, actions: Actions) {
                     MetroButton("get a key") {
                         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://acoustid.org/new-application")))
                     }
+                }
+                if (key.isNotEmpty()) {
+                    VSpace(16)
+                    MText(
+                        "Scanning fingerprints and looks up every song once and saves the answers, " +
+                            "so finding info and consolidating albums don't ask again.",
+                        MetroType.small, color = c.subtle, maxLines = 4,
+                    )
+                    VSpace(8)
+                    var scanned by remember { mutableStateOf(0) }
+                    val scan by vm.scan.collectAsState()
+                    LaunchedEffect(lib.version, scan.done, scan.running) { scanned = vm.scannedCount() }
+                    ScanControls(vm, scanned, lib.songs.size)
+                    VSpace(10)
+                    MetroButton("consolidate albums") { vm.navigate(Screen.Consolidate) }
                 }
             }
         }
@@ -154,6 +183,28 @@ fun SettingsScreen(vm: MainViewModel, actions: Actions) {
                 MText("${lib.artists.size} artists • ${lib.albums.size} albums • ${lib.songs.size} songs", MetroType.normal, color = c.subtle)
                 VSpace(10)
                 MetroButton("refresh collection") { vm.reload(); vm.toast("refreshing") }
+            }
+        }
+
+        item { Section("about") }
+        item {
+            val version = remember {
+                runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty()
+            }
+            Column(Modifier.padding(horizontal = 24.dp)) {
+                MText("Tune $version", MetroType.normal)
+                VSpace(8)
+                MText(
+                    "Finding info online uses three free web services: AcoustID identifies recordings from audio " +
+                        "fingerprints, MusicBrainz provides song and album information, and the Cover Art Archive " +
+                        "provides album covers. Tune contacts them only when you use those features; otherwise it " +
+                        "makes no web requests. No data is collected.",
+                    MetroType.small, color = c.subtle, maxLines = 8,
+                )
+                VSpace(10)
+                MetroButton("privacy policy") {
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Gabrielcarvfer/tune/blob/master/PRIVACY.md")))
+                }
             }
         }
     }

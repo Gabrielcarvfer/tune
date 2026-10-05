@@ -7,7 +7,5 @@ local.properties
 cmake-build-*/
 .cxx/
 *.log
-# Private launcher name/icon overrides (see README)
-/branding/
 # Private notes, not shared
 /private/

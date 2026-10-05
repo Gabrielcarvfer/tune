@@ -72,8 +72,12 @@ abstract class TuneTest {
     @Before
     fun startApp() {
         TestMedia.cleanup(ctx)
-        ctx.getSharedPreferences("tune", Context.MODE_PRIVATE).edit().clear().also { prefs(it) }.commit()
+        ctx.getSharedPreferences("tune", Context.MODE_PRIVATE).edit().clear()
+            // Most tests were written for the album list, plain titles, and files moved on save.
+            .putBoolean("albumGrid", false).putBoolean("accentTitles", false).putBoolean("organize", true)
+            .also { prefs(it) }.commit()
         File(ctx.filesDir, "playlists.json").delete()
+        File(ctx.filesDir, "acoustid").deleteRecursively()
         Net.http = fake
         songs.forEach { uris[it.title] = TestMedia.create(ctx, it) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
@@ -89,6 +93,7 @@ abstract class TuneTest {
         runCatching { scenario.close() }
         TestMedia.cleanup(ctx)
         Net.http = UrlConnectionHttp
+        Net.blocked = false
     }
 
     // --- app access ---------------------------------------------------------

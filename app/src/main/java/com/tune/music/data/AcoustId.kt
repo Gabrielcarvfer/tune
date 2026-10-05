@@ -2,7 +2,6 @@ package com.tune.music.data
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -56,15 +55,24 @@ data class CoverImage(val thumb: String, val full: String, val types: List<Strin
  * Identifies songs the way Picard does: Chromaprint fingerprint -> AcoustID ->
  * MusicBrainz recordings and releases, then cover art from the Cover Art Archive.
  */
-class AcoustId(private val context: Context) {
+class AcoustId(private val context: Context, val cache: MatchCache) {
 
-    private var lastCall = 0L
+    /**
+     * All releases each song appears on, best first. Saved answers are reused;
+     * otherwise the song is fingerprinted (once) and looked up, and the answer saved.
+     */
+    suspend fun identify(song: Song, apiKey: String): List<TrackMatch> = parse(lookupSong(song, apiKey))
 
-    /** All releases each song appears on, best first. */
-    suspend fun identify(song: Song, apiKey: String): List<TrackMatch> {
-        val fp = Chromaprint.fingerprint(context, song.uri)
+    /** The AcoustID answer for [song], from the cache or the web service. */
+    suspend fun lookupSong(song: Song, apiKey: String): JSONObject {
+        val cached = withContext(Dispatchers.IO) { cache.get(song) }
+        cached?.lookup?.let { return it }
+        val fp = cached?.fingerprint ?: Chromaprint.fingerprint(context, song.uri).also { fp ->
+            withContext(Dispatchers.IO) { cache.put(song, fp, null) }
+        }
         val json = lookup(apiKey, fp, (song.durationMs / 1000).toInt())
-        return parse(json)
+        withContext(Dispatchers.IO) { cache.put(song, fp, json) }
+        return json
     }
 
     /**
@@ -94,7 +102,7 @@ class AcoustId(private val context: Context) {
     suspend fun covers(releaseId: String, releaseGroupId: String): List<CoverImage> = withContext(Dispatchers.IO) {
         val out = ArrayList<CoverImage>()
         for (url in listOf("https://coverartarchive.org/release/$releaseId", "https://coverartarchive.org/release-group/$releaseGroupId")) {
-            val body = runCatching { Net.http.get(url).decodeToString() }.getOrNull() ?: continue
+            val body = runCatching { Net.get(url).decodeToString() }.getOrNull() ?: continue
             val images = runCatching { JSONObject(body).optJSONArray("images") }.getOrNull() ?: continue
             for (i in 0 until images.length()) {
                 val img = images.getJSONObject(i)
@@ -112,16 +120,12 @@ class AcoustId(private val context: Context) {
         out.sortedByDescending { it.front }
     }
 
-    suspend fun download(url: String): ByteArray = withContext(Dispatchers.IO) { Net.http.get(url) }
+    suspend fun download(url: String): ByteArray = withContext(Dispatchers.IO) { Net.get(url) }
 
     // --- HTTP ---------------------------------------------------------------
 
+    // (Rate limits are kept by the HTTP layer; see Throttle.)
     private suspend fun lookup(apiKey: String, fingerprint: String, duration: Int): JSONObject = withContext(Dispatchers.IO) {
-        // AcoustID allows 3 requests per second.
-        val wait = 350 - (System.currentTimeMillis() - lastCall)
-        if (wait > 0) delay(wait)
-        lastCall = System.currentTimeMillis()
-
         val form = listOf(
             "client" to apiKey,
             "format" to "json",
@@ -130,7 +134,7 @@ class AcoustId(private val context: Context) {
             "meta" to "recordings releasegroups releases tracks compress",
         ).joinToString("&") { (k, v) -> "$k=" + URLEncoder.encode(v, "UTF-8") }
 
-        val json = JSONObject(Net.http.postForm(LOOKUP_URL, form))
+        val json = JSONObject(Net.postForm(LOOKUP_URL, form))
         if (json.optString("status") != "ok") {
             val msg = json.optJSONObject("error")?.optString("message") ?: "lookup failed"
             throw IOException("acoustid: $msg")

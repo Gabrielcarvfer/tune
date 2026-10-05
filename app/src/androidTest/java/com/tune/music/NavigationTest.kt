@@ -1,5 +1,6 @@
 package com.tune.music
 
+import android.content.SharedPreferences
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertTextEquals
@@ -179,4 +180,33 @@ class NavigationTest : TuneTest() {
 
     private fun androidx.compose.ui.test.junit4.ComposeTestRule.onAllNodesWithTagCount(tag: String) =
         onAllNodes(androidx.compose.ui.test.hasTestTag(tag)).fetchSemanticsNodes(atLeastOneRootRequired = false).size
+}
+
+/** A fresh install: albums as a grid, titles in the accent colour, files left in place. */
+@RunWith(AndroidJUnit4::class)
+class DefaultsTest : TuneTest() {
+    override fun prefs(e: SharedPreferences.Editor) {
+        e.remove("albumGrid").remove("accentTitles").remove("organize")
+    }
+
+    @Test fun filesAreOnlyMovedOnSaveOnceAMusicFolderIsChosen() {
+        assertTrue(!vm.autoOrganize.value)
+        val folder = com.tune.music.data.LibraryFolder(com.tune.music.data.Organizer.primaryRoot, "Music/${TestMedia.IN_DIR}")
+        onVm { setLibraryFolder(folder) }
+        assertTrue(vm.autoOrganize.value)
+        onVm { setLibraryFolder(null as com.tune.music.data.LibraryFolder?) }
+        assertTrue(!vm.autoOrganize.value)
+        // Once the user sets it, their choice sticks.
+        onVm { setAutoOrganize(true) }
+        onVm { setLibraryFolder(folder) }
+        onVm { setLibraryFolder(null as com.tune.music.data.LibraryFolder?) }
+        assertTrue(vm.autoOrganize.value)
+    }
+
+    @Test fun albumsAreAGridAndTitlesUseTheAccent() {
+        assertTrue(vm.albumGrid.value)
+        assertTrue(vm.accentTitles.value)
+        openCollection("albums")
+        tag("albums:grid").assertExists()
+    }
 }

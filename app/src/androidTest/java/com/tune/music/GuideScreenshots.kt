@@ -19,6 +19,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.tune.music.data.LibraryFolder
+import com.tune.music.data.MusicBrainz
 import com.tune.music.data.Organizer
 import com.tune.music.support.FakeHttp
 import com.tune.music.support.FakeHttp.Companion.Rel
@@ -220,6 +221,77 @@ class GuideScreenshots : TuneTest() {
         text("front")
         SystemClock.sleep(3_000) // cover thumbnails
         shot("acoustid-4", mark(7, text("front")), mark(8, button("apply")))
+    }
+
+    @Test fun mergingAlbums() {
+        openCollection("albums")
+        tag("albums:grid").performScrollToNode(hasText("Ironclad"))
+        longPress("Ironclad")
+        shot("merge-1", mark(1, text("merge with other albums")))
+        tap("merge with other albums")
+        waitFor("merge screen") { screen is Screen.MergeAlbums }
+        tag("merge:Ironclad Breach").performClick()
+        tag("merge:Ironclad Aftershock").performClick()
+        text("3 selected")
+        shot("merge-2", mark(2, tag("merge:Ironclad Breach")), mark(3, button("edit as one")), mark(4, button("find online")))
+        button("edit as one").performClick()
+        waitFor("merge editor") { screen is Screen.EditAsAlbum }
+        type("field:album", "Ironclad Complete")
+        shot("merge-3", mark(5, tag("field:album")), mark(6, button("save")))
+    }
+
+    @Test fun searchingByName() {
+        onVm { setAcoustIdKey("guide-key") }
+        serveRelease()
+        val found = { id: String, title: String, year: String ->
+            JSONObject().put("id", id).put("title", title).put("date", year).put("country", "XW").put("track-count", 3)
+                .put("artist-credit", JSONArray().put(JSONObject().put("name", GuideMedia.MESSY_ARTIST)))
+                .put("release-group", JSONObject().put("id", "rg-$id").put("primary-type", "Album"))
+                .put("media", JSONArray().put(JSONObject().put("format", "Digital Media").put("track-count", 3)))
+        }
+        fake.pages[MusicBrainz.searchUrl(GuideMedia.MESSY_ALBUM, GuideMedia.MESSY_ARTIST)] = JSONObject().put("releases", JSONArray()
+            .put(found("mb-1", GuideMedia.RELEASE, "2018-05-04"))
+            .put(found("mb-2", "${GuideMedia.RELEASE} (Deluxe)", "2020-09-01"))).toString().toByteArray()
+
+        openCollection("albums")
+        tag("albums:grid").performScrollToNode(hasText(GuideMedia.MESSY_ALBUM))
+        tap(GuideMedia.MESSY_ALBUM)
+        tag("appbar:more").performClick()
+        tap("find album info online")
+        text("matches 3 of 3 songs")
+        shot("search-1", mark(1, text("search by name")))
+        tap("search by name")
+        tap("search")
+        text("${GuideMedia.RELEASE} (Deluxe)")
+        shot("search-2", mark(2, tag("field:album")), mark(3, text("search"), side = "right"), mark(4, text(GuideMedia.RELEASE)))
+    }
+
+    @Test fun scanningAndConsolidating() {
+        onVm { setAcoustIdKey("guide-key") }
+        // AcoustID answers in the order the scan asks (song paths). Each split
+        // song's best match is its own album; the anniversary edition has all four.
+        val empty = """{"status":"ok","results":[]}"""
+        vm.library.value.songs.sortedBy { it.path }.forEach { song ->
+            val own = GuideMedia.SPLIT_ALBUMS[song.title]
+            val i = GuideMedia.ANNIVERSARY_TRACKS.indexOf(song.title)
+            fake.lookupResponses += if (own == null) empty else FakeHttp.lookup(
+                song.title, GuideMedia.COMPOSER,
+                Rel("own-$i", "rg-own-$i", own, GuideMedia.COMPOSER, 2014 + i / 2, song.track, 2),
+                Rel("anniv", "rg-anniv", GuideMedia.ANNIVERSARY, GuideMedia.COMPOSER, 2024, i + 1, 4, trackTitle = song.title),
+            )
+        }
+        settingsAt("finding info online")
+        scrollTo(hasText("consolidate albums"))
+        shot("consolidate-1", mark(1, text("scan collection")))
+        tap("scan collection")
+        waitFor("scan finished", 120_000) { !vm.scan.value.running && vm.scan.value.done == vm.library.value.songs.size }
+        shot("consolidate-2", mark(2, text("consolidate albums")))
+        tap("consolidate albums")
+        text("1 release gathers split albums. Tap it to review it.", timeoutMs = 20_000)
+        shot("consolidate-3", mark(3, text(GuideMedia.ANNIVERSARY)))
+        tap(GuideMedia.ANNIVERSARY)
+        text("04  Aftershock")
+        shot("consolidate-4", mark(4, button("apply")))
     }
 
     /** AcoustID and the Cover Art Archive, answering for the badly tagged album. */

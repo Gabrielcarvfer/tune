@@ -20,6 +20,16 @@ object GuideMedia {
     const val RELEASE = "Paper Satellites"
     val RELEASE_TRACKS = listOf("Signal Fires", "Weather Balloon", "Long Exposure")
 
+    // A soundtrack and its two expansions, each song filed under its original
+    // album; all four songs are on one anniversary edition.
+    const val COMPOSER = "Kestrel Grey"
+    const val ANNIVERSARY = "Ironclad (10th Anniversary Edition)"
+    val ANNIVERSARY_TRACKS = listOf("Foundry", "Steel Rain", "Breach Point", "Aftershock")
+    val SPLIT_ALBUMS = mapOf(
+        "Foundry" to "Ironclad", "Steel Rain" to "Ironclad",
+        "Breach Point" to "Ironclad Breach", "Aftershock" to "Ironclad Aftershock",
+    )
+
     val SONGS: List<TestMedia.Spec> by lazy {
         fun album(artist: String, album: String, year: String, genre: String, art: ByteArray?, vararg titles: String) =
             titles.mapIndexed { i, t ->
@@ -31,6 +41,9 @@ object GuideMedia {
             album("The Quiet Hours", "Amber Rooms", "2021", "Folk", cover(0xFFF2A541, 0xFFC0392B, 2), "Window Seat", "Kettle Song") +
             album("Echo Parade", "Neon Garden", "2022", "Synthpop", cover(0xFFD6247A, 0xFF2D1B69, 3), "Midnight Bloom", "Glass Avenue") +
             album("Saltwater Radio", "Coastline", "2014", "Ambient", cover(0xFF2E8B57, 0xFF0B4F6C, 4), "Long Way North") +
+            album(COMPOSER, "Ironclad", "2014", "Soundtrack", cover(0xFF3B3B3B, 0xFFB5651D, 1), "Foundry", "Steel Rain") +
+            album(COMPOSER, "Ironclad Breach", "2015", "Soundtrack", cover(0xFF5A1E1E, 0xFF1E1E1E, 4), "Breach Point") +
+            album(COMPOSER, "Ironclad Aftershock", "2016", "Soundtrack", cover(0xFF1E3A5A, 0xFF101010, 0), "Aftershock") +
             // Badly tagged rips, as they often come: no cover, no year, placeholder titles.
             album(MESSY_ARTIST, MESSY_ALBUM, "", "", null, "track 1", "track 2", "track 3")
     }

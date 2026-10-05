@@ -77,9 +77,8 @@ class MergeAlbumsTest : TuneTest() {
     @Test fun findingInfoForMergedAlbumsPrefersTheReleaseWithMostSongs() {
         // Each song's own lookup ranks a release of its own first; only "complete" has all four.
         val complete = { track: Int, title: String -> Rel("rel-all", "rg-all", "Tune Test Complete", "Tune Test Complete Band", 2021, track, 4, trackTitle = title) }
-        // Identification goes album by album in title order, songs in track order.
         listOf("Alpha Song", "Beta Song", "Gamma Song", "Delta Tune").forEachIndexed { i, t ->
-            fake.lookupResponses += FakeHttp.lookup(t, TestMedia.BAND, Rel("own-$i", "rg-own-$i", "Tune Test Own $i", TestMedia.BAND, 2000, 1, 1, trackTitle = t), complete(i + 1, t))
+            answerLookup(t, FakeHttp.lookup(t, TestMedia.BAND, Rel("own-$i", "rg-own-$i", "Tune Test Own $i", TestMedia.BAND, 2000, 1, 1, trackTitle = t), complete(i + 1, t)))
         }
         openMerge()
         tag("merge:${TestMedia.SINGLE}").performClick()

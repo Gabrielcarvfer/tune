@@ -39,7 +39,7 @@ class ConsolidateTest : TuneTest() {
 
     private fun anniv(track: Int, title: String) = Rel("anniv", "rg-anniv", anniversary, composer, 2021, track, 3, trackTitle = title)
 
-    /** AcoustID answers, queued in the order the scan asks (song paths, sorted). */
+    /** AcoustID answers for each song. */
     private fun serveLookups() {
         val answers = mapOf(
             // Each song's best match is its original soundtrack; all three are on the anniversary release.
@@ -48,7 +48,7 @@ class ConsolidateTest : TuneTest() {
             "Bigfoot" to FakeHttp.lookup("Bigfoot", composer, Rel("ost-am", "rg-am", "Tune Test Aftermath OST", composer, 1997, 2, 10), anniv(3, "Bigfoot")),
             "Lonely" to FakeHttp.lookup("Lonely", "Tune Test Other", Rel("solo", "rg-solo", "Tune Test Elsewhere", "Tune Test Other", 2000, 1, 1)),
         )
-        vm.library.value.songs.sortedBy { it.path }.forEach { fake.lookupResponses += answers.getValue(it.title) }
+        answers.forEach { (title, answer) -> answerLookup(title, answer) }
     }
 
     private val posts get() = fake.requests.count { it.startsWith("POST") }
@@ -58,7 +58,7 @@ class ConsolidateTest : TuneTest() {
         tap("settings")
         scrollTo(hasText("scan collection"))
         tap("scan collection")
-        waitFor("scan finished", 60_000) { !vm.scan.value.running && vm.scan.value.done == 4 }
+        waitFor("scan finished", 60_000) { vm.scan.value.let { !it.running && it.already + it.done == 4 } }
     }
 
     @Test fun scanningLooksEverySongUpOnceAndSavesIt() {
@@ -138,6 +138,19 @@ class ConsolidateTest : TuneTest() {
         tap("settings")
         scrollTo(hasText("scan collection"))
         tap("scan collection")
+    }
+
+    @Test fun scanningAgainOnlyDoesTheSongsLeft() {
+        serveLookups()
+        // Two songs were scanned before (say, by a scan that was stopped).
+        val empty = org.json.JSONObject("""{"status":"ok","results":[]}""")
+        listOf("Hell March", "Grinder").forEach { vm.matchCache.put(song(it), "AQAAsaved", empty) }
+        scan()
+        assertEquals("only the two songs left were looked up", 2, posts)
+        assertEquals(4, runBlocking { vm.scannedCount() })
+        scrollTo(hasText("4 of 4 songs scanned"))
+        text("4 of 4 songs scanned")
+        assertEquals(2, vm.scan.value.already)
     }
 
     @Test fun forgettingTheScanDeletesTheSavedAnswers() {

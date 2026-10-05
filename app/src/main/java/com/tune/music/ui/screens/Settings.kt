@@ -147,7 +147,7 @@ fun SettingsScreen(vm: MainViewModel, actions: Actions) {
                     VSpace(8)
                     var scanned by remember { mutableStateOf(0) }
                     val scan by vm.scan.collectAsState()
-                    LaunchedEffect(lib.version, scan.done, scan.running) { scanned = vm.scannedCount() }
+                    LaunchedEffect(lib.version, scan.running, scan.generation) { scanned = vm.scannedCount() }
                     ScanControls(vm, scanned, lib.songs.size)
                     VSpace(10)
                     MetroButton("consolidate albums") { vm.navigate(Screen.Consolidate) }
@@ -201,6 +201,8 @@ fun SettingsScreen(vm: MainViewModel, actions: Actions) {
                         "makes no web requests. No data is collected.",
                     MetroType.small, color = c.subtle, maxLines = 8,
                 )
+                VSpace(10)
+                MetroButton("open-source licences") { vm.navigate(Screen.Licenses) }
                 VSpace(10)
                 MetroButton("privacy policy") {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Gabrielcarvfer/tune/blob/master/PRIVACY.md")))

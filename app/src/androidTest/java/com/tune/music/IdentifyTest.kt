@@ -38,10 +38,10 @@ class IdentifyTest : TuneTest() {
         Rel("rel-full", "rg-full", release, releaseArtist, 1999, track, 3, trackTitle = title)
 
     private fun serveAlbum() {
-        fake.lookupResponses += FakeHttp.lookup("Alpha Song", TestMedia.BAND, full(1, "Alpha (Remastered)"),
-            Rel("rel-comp", "rg-comp", "Tune Test Hits", "Various Artists", 2005, 9, 20, type = "Compilation"))
-        fake.lookupResponses += FakeHttp.lookup("Beta Song", TestMedia.BAND, full(2, "Beta (Remastered)"))
-        fake.lookupResponses += FakeHttp.lookup("Gamma Song", TestMedia.BAND, full(3, "Gamma (Remastered)"))
+        answerLookup("Alpha Song", FakeHttp.lookup("Alpha Song", TestMedia.BAND, full(1, "Alpha (Remastered)"),
+            Rel("rel-comp", "rg-comp", "Tune Test Hits", "Various Artists", 2005, 9, 20, type = "Compilation")))
+        answerLookup("Beta Song", FakeHttp.lookup("Beta Song", TestMedia.BAND, full(2, "Beta (Remastered)")))
+        answerLookup("Gamma Song", FakeHttp.lookup("Gamma Song", TestMedia.BAND, full(3, "Gamma (Remastered)")))
         fake.pages["https://coverartarchive.org/release/rel-full"] = FakeHttp.coverArchive(
             Triple("https://img.test/front.jpg", "Front", true),
             Triple("https://img.test/back.jpg", "Back", false),

@@ -65,14 +65,59 @@ class AcoustId(private val context: Context, val cache: MatchCache) {
 
     /** The AcoustID answer for [song], from the cache or the web service. */
     suspend fun lookupSong(song: Song, apiKey: String): JSONObject {
-        val cached = withContext(Dispatchers.IO) { cache.get(song) }
-        cached?.lookup?.let { return it }
-        val fp = cached?.fingerprint ?: Chromaprint.fingerprint(context, song.uri).also { fp ->
-            withContext(Dispatchers.IO) { cache.put(song, fp, null) }
-        }
-        val json = lookup(apiKey, fp, (song.durationMs / 1000).toInt())
-        withContext(Dispatchers.IO) { cache.put(song, fp, json) }
-        return json
+        var answer: Result<JSONObject>? = null
+        lookupSongs(listOf(song), apiKey) { _, r -> answer = r }
+        return answer!!.getOrThrow()
+    }
+
+    /** What preparing a song gave: a saved answer, or a fingerprint to look up. */
+    private sealed interface Prepared {
+        class Answered(val lookup: JSONObject) : Prepared
+        class Fingerprinted(val fingerprint: String) : Prepared
+    }
+
+    /**
+     * AcoustID answers for [songs], saved ones reused. Fingerprinting (decoding
+     * and Chromaprint, the slow part) runs on several cores, and each song is
+     * looked up as soon as its fingerprint is ready, one request at a time
+     * within AcoustID's rate limit. [onResult] gets each song's answer or error
+     * as it comes, in no particular order. Throwing from it stops everything.
+     */
+    suspend fun lookupSongs(
+        songs: List<Song>,
+        apiKey: String,
+        onResult: suspend (Song, Result<JSONObject>) -> Unit,
+    ) {
+        pipeline(
+            songs, PARALLEL_FINGERPRINTS, Dispatchers.Default,
+            prepare = { song ->
+                val cached = withContext(Dispatchers.IO) { cache.get(song) }
+                when {
+                    cached?.lookup != null -> Prepared.Answered(cached.lookup)
+                    cached?.fingerprint != null -> Prepared.Fingerprinted(cached.fingerprint)
+                    else -> {
+                        val fp = Chromaprint.fingerprint(context, song.uri)
+                        withContext(Dispatchers.IO) { cache.put(song, fp, null) }
+                        Prepared.Fingerprinted(fp)
+                    }
+                }
+            },
+            finish = { song, prepared ->
+                val result = prepared.mapCatching { p ->
+                    when (p) {
+                        is Prepared.Answered -> p.lookup
+                        is Prepared.Fingerprinted -> {
+                            val json = lookup(apiKey, p.fingerprint, (song.durationMs / 1000).toInt())
+                            withContext(Dispatchers.IO) { cache.put(song, p.fingerprint, json) }
+                            json
+                        }
+                    }
+                }
+                // (mapCatching would also catch a cancellation; let it through.)
+                result.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
+                onResult(song, result)
+            },
+        )
     }
 
     /**
@@ -85,14 +130,14 @@ class AcoustId(private val context: Context, val cache: MatchCache) {
         progress: (done: Int, total: Int) -> Unit,
     ): List<ReleaseCandidate> {
         val perSong = LinkedHashMap<Long, List<TrackMatch>>()
+        songs.forEach { perSong[it.id] = emptyList() }
         var firstError: Throwable? = null
-        songs.forEachIndexed { i, s ->
-            progress(i, songs.size)
-            perSong[s.id] = runCatching { identify(s, apiKey) }
-                .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; firstError = firstError ?: it }
-                .getOrDefault(emptyList())
+        var done = 0
+        progress(0, songs.size)
+        lookupSongs(songs, apiKey) { s, r ->
+            r.onSuccess { perSong[s.id] = parse(it) }.onFailure { firstError = firstError ?: it }
+            progress(++done, songs.size)
         }
-        progress(songs.size, songs.size)
         // One bad file shouldn't sink an album, but a bad key or no network should be reported.
         firstError?.let { e -> if (perSong.values.all { it.isEmpty() }) throw e }
         return groupByRelease(perSong, songs.size)
@@ -179,6 +224,9 @@ class AcoustId(private val context: Context, val cache: MatchCache) {
         }
 
         const val LOOKUP_URL = "https://api.acoustid.org/v2/lookup"
+
+        /** Songs fingerprinted at once: the spare cores, at most 4. */
+        val PARALLEL_FINGERPRINTS = (Runtime.getRuntime().availableProcessors() - 1).coerceIn(1, 4)
 
         fun parse(json: JSONObject): List<TrackMatch> {
             val out = ArrayList<TrackMatch>()

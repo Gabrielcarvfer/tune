@@ -8,10 +8,13 @@ import java.net.URLDecoder
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * Stands in for AcoustID and the Cover Art Archive. Lookups are answered in
- * call order (songs are identified in album order); GETs by URL.
+ * Stands in for AcoustID, MusicBrainz and the Cover Art Archive. Lookups are
+ * answered by the song's fingerprint when [byFingerprint] knows it (songs are
+ * looked up in no particular order), otherwise from [lookupResponses] in call
+ * order (repeating the last one), otherwise "no match". GETs by URL.
  */
 class FakeHttp : Http {
+    val byFingerprint = HashMap<String, String>()
     val lookupResponses = ArrayList<String>()
     val pages = HashMap<String, ByteArray>()
     val requests = CopyOnWriteArrayList<String>()
@@ -24,6 +27,10 @@ class FakeHttp : Http {
 
     override fun postForm(url: String, form: String): String {
         requests += "POST $url ${URLDecoder.decode(form, "UTF-8").take(200)}"
+        val fingerprint = form.split('&').firstOrNull { it.startsWith("fingerprint=") }
+            ?.let { URLDecoder.decode(it.substringAfter('='), "UTF-8") }
+        byFingerprint[fingerprint]?.let { return it }
+        if (lookupResponses.isEmpty()) return """{"status":"ok","results":[]}"""
         return lookupResponses.getOrElse(lookups++) { lookupResponses.last() }
     }
 

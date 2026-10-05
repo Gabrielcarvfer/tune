@@ -290,12 +290,29 @@ Gradle and the emulator start many threads.
 - Editing, moving and deleting files on Android 11+ goes through the system
   consent dialog, which asks once per batch.
 - The app is minSdk 26.
-- Licences of bundled or linked third-party code:
-  - Selawik font: SIL Open Font License 1.1 (`third_party/Selawik-LICENSE.txt`).
-  - Chromaprint: LGPL 2.1.
-  - TagLib: LGPL 2.1 / MPL 1.1.
-
-  Both libraries are linked statically into `libtune_native.so`; keep that in
-  mind if you distribute builds.
+- Debug builds, local or from CI, are all signed with the same key
+  (`tools/signing/debug.keystore`), so a new build installs over the old one
+  and keeps its settings, playlists, history and saved fingerprints. Store
+  releases are signed with your own upload key instead; don't mix the two on
+  one phone. Android's app backup also keeps the settings and playlists
+  across reinstalls and new phones.
 - Windows Phone and Zune are trademarks of Microsoft. This project is not
   affiliated with Microsoft and ships none of its logos.
+
+## License
+
+Tune is free software: you can redistribute it and/or modify it under the
+terms of the [GNU General Public License, version 3](LICENSE).
+
+It includes third-party code under these licences; the app lists them all,
+with their full texts, under settings → about → open-source licences
+(`app/src/main/assets/licenses/`):
+
+- Chromaprint 1.5.1 (LGPL 2.1, with KISS FFT under BSD-3-Clause) and TagLib
+  2.0.2 (LGPL 2.1): unmodified releases, linked statically into
+  `libtune_native.so`. This repository has the complete source and build
+  scripts, so you can rebuild the app with your own versions of them.
+- UTF8-CPP 4.0.5: Boost Software License 1.0.
+- Selawik font: SIL Open Font License 1.1.
+- AndroidX, Jetpack Compose, Media3, Kotlin, kotlinx.coroutines, Coil, Guava:
+  Apache License 2.0.

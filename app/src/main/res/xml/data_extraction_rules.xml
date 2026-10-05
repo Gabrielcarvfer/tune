@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android backup (Android 12+): settings, the AcoustID key, playlists and
+  history come back after a reinstall or on a new phone. Saved fingerprints
+  are left out: they're keyed by this phone's media ids, which mean other
+  songs elsewhere.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="." />
+        <include domain="file" path="playlists.json" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="." />
+        <include domain="file" path="playlists.json" />
+    </device-transfer>
+</data-extraction-rules>

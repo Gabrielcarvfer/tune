@@ -29,6 +29,16 @@ android {
     }
     ndkVersion = "27.2.12479018"
 
+    // Every debug build (local or CI) signs with the same key, so a new build
+    // always installs over the old one and keeps its data. Not a secret: it
+    // only signs debug builds; store releases use the upload key below.
+    signingConfigs.getByName("debug") {
+        storeFile = rootProject.file("tools/signing/debug.keystore")
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+    }
+
     // Release signing for store uploads, from the environment (CI secrets).
     // Without it, release builds are unsigned.
     val keystore = System.getenv("TUNE_KEYSTORE")
@@ -94,6 +104,7 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test:rules:1.6.1")
     androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

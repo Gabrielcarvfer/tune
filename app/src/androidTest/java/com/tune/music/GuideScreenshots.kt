@@ -268,17 +268,15 @@ class GuideScreenshots : TuneTest() {
 
     @Test fun scanningAndConsolidating() {
         onVm { setAcoustIdKey("guide-key") }
-        // AcoustID answers in the order the scan asks (song paths). Each split
-        // song's best match is its own album; the anniversary edition has all four.
-        val empty = """{"status":"ok","results":[]}"""
-        vm.library.value.songs.sortedBy { it.path }.forEach { song ->
-            val own = GuideMedia.SPLIT_ALBUMS[song.title]
-            val i = GuideMedia.ANNIVERSARY_TRACKS.indexOf(song.title)
-            fake.lookupResponses += if (own == null) empty else FakeHttp.lookup(
-                song.title, GuideMedia.COMPOSER,
-                Rel("own-$i", "rg-own-$i", own, GuideMedia.COMPOSER, 2014 + i / 2, song.track, 2),
-                Rel("anniv", "rg-anniv", GuideMedia.ANNIVERSARY, GuideMedia.COMPOSER, 2024, i + 1, 4, trackTitle = song.title),
-            )
+        // Each split song's best match is its own album; the anniversary edition
+        // has all four. (Other songs get "no match".)
+        GuideMedia.SPLIT_ALBUMS.forEach { (title, own) ->
+            val i = GuideMedia.ANNIVERSARY_TRACKS.indexOf(title)
+            answerLookup(title, FakeHttp.lookup(
+                title, GuideMedia.COMPOSER,
+                Rel("own-$i", "rg-own-$i", own, GuideMedia.COMPOSER, 2014 + i / 2, song(title).track, 2),
+                Rel("anniv", "rg-anniv", GuideMedia.ANNIVERSARY, GuideMedia.COMPOSER, 2024, i + 1, 4, trackTitle = title),
+            ))
         }
         settingsAt("finding info online")
         scrollTo(hasText("consolidate albums"))
@@ -300,7 +298,7 @@ class GuideScreenshots : TuneTest() {
         GuideMedia.RELEASE_TRACKS.forEachIndexed { i, t ->
             val others = if (i == 0) arrayOf(Rel("rel-lns", "rg-lns", "Late Night Signals", "Various Artists", 2021, 7, 18, trackTitle = t, type = "Compilation"))
             else emptyArray()
-            fake.lookupResponses += FakeHttp.lookup(t, GuideMedia.MESSY_ARTIST, full(i), *others)
+            answerLookup("track ${i + 1}", FakeHttp.lookup(t, GuideMedia.MESSY_ARTIST, full(i), *others))
         }
         // Thumbnails are shown straight from their URL, so they're local files.
         val front = GuideMedia.cover(0xFF0D1B2A, 0xFF3A86FF, 0)

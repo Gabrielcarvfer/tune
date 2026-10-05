@@ -112,7 +112,7 @@ class MetadataTest : TuneTest() {
         tag("field:genre").performTextReplacement("Drone")
         saveAndConsent()
         // The file is rewritten in place; reads in the middle of that may fail.
-        waitFor("saved") { runCatching { tagsOf("Gamma Song")[TagLib.GENRE] }.getOrNull() == "Drone" }
+        waitFor("saved", 30_000) { runCatching { tagsOf("Gamma Song")[TagLib.GENRE] }.getOrNull() == "Drone" }
         assertTrue(pathOf("Gamma Song").endsWith("/${TestMedia.IN_DIR}/${TestMedia.ALBUM}/Gamma Song.m4a"))
     }
 

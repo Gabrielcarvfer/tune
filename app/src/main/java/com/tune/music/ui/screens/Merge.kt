@@ -122,7 +122,7 @@ fun ConsolidateScreen(vm: MainViewModel) {
     var chosen by remember { mutableStateOf<Consolidator.Proposal?>(null) }
     var refresh by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(lib.version, scan.running, scan.done, refresh) {
+    LaunchedEffect(lib.version, scan.running, scan.generation, refresh) {
         scanned = vm.scannedCount()
         if (!scan.running) proposals = vm.consolidationProposals()
     }
@@ -188,7 +188,8 @@ fun ScanControls(vm: MainViewModel, scanned: Int, total: Int) {
     val c = Metro.colors
     MText(
         when {
-            scan.running -> "scanning song ${minOf(scan.done + 1, scan.total)} of ${scan.total}..."
+            // Counted over the whole collection: songs scanned before are skipped, not redone.
+            scan.running -> "${scan.already + scan.done} of ${scan.already + scan.total} songs scanned..."
             else -> "$scanned of $total songs scanned"
         },
         MetroType.normal, modifier = Modifier.testTag("scan:status"),

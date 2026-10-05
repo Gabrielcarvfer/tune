@@ -112,6 +112,16 @@ abstract class TuneTest {
 
     protected fun song(title: String): Song = vm.library.value.songs.first { it.title == title }
 
+    /**
+     * Makes the fake AcoustID answer [response] for the song titled [title],
+     * recognised by its real fingerprint (lookups happen in no particular order).
+     */
+    protected fun answerLookup(title: String, response: String) {
+        val fp = kotlinx.coroutines.runBlocking { com.tune.music.data.Chromaprint.fingerprint(ctx, uris.getValue(title)) }
+        val previous = fake.byFingerprint.put(fp, response)
+        check(previous == null || previous == response) { "$title has the same fingerprint as another test song" }
+    }
+
     protected val screen: Screen get() = vm.backStack.last()
 
     protected fun waitFor(what: String, timeoutMs: Long = 15_000, condition: () -> Boolean) {
@@ -218,9 +228,15 @@ abstract class TuneTest {
      * the layout settle, then type.
      */
     protected fun replaceText(fieldTag: String, value: String) {
-        scrollTo(hasTestTag(fieldTag))
-        tag(fieldTag).performClick()
-        compose.waitForIdle()
+        // The keyboard (still opening from a previous field) can recreate rows
+        // between scrolling to one and tapping it; try again then.
+        for (attempt in 1..3) {
+            scrollTo(hasTestTag(fieldTag))
+            val tapped = runCatching { tag(fieldTag).performClick() }
+            compose.waitForIdle()
+            if (tapped.isSuccess) break
+            if (attempt == 3) tapped.getOrThrow()
+        }
         scrollTo(hasTestTag(fieldTag))
         tag(fieldTag).performTextReplacement(value)
         compose.waitForIdle()

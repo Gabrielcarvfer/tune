@@ -44,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +73,8 @@ import com.tune.music.ui.components.metroClick
 import com.tune.music.ui.components.topDivider
 import com.tune.music.ui.screens.Actions
 import com.tune.music.ui.screens.ConsolidateScreen
+import com.tune.music.ui.screens.LicenseTextScreen
+import com.tune.music.ui.screens.LicensesScreen
 import com.tune.music.ui.screens.EditAsAlbumScreen
 import com.tune.music.ui.screens.MergeAlbumsScreen
 import com.tune.music.ui.screens.AlbumScreen
@@ -205,18 +208,30 @@ private fun App(vm: MainViewModel) {
                 }
             } else {
                 val screen = vm.backStack.last()
+                val entry = vm.backStackIds.last() to screen
+                // Each back stack entry keeps its scroll positions and pivot page.
+                val saved = rememberSaveableStateHolder()
+                val live = vm.backStackIds.toList()
+                val known = remember { mutableSetOf<Long>() }
+                LaunchedEffect(live) {
+                    (known - live.toSet()).forEach { saved.removeState(it) }
+                    known.retainAll(live.toSet())
+                    known.addAll(live)
+                }
                 Column(Modifier.fillMaxSize()) {
                     AnimatedContent(
-                        targetState = screen,
+                        targetState = entry,
                         transitionSpec = {
                             // Approximates the WP "turnstile": new page swings in from the left edge.
                             (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 14 }) togetherWith fadeOut(tween(120))
                         },
                         modifier = Modifier.weight(1f),
                         label = "nav",
-                    ) { s ->
-                        Box(Modifier.fillMaxSize().then(if (s is Screen.Hub || s is Screen.Collection) Modifier.statusBarsPadding() else Modifier)) {
-                            ScreenContent(s, vm, actions)
+                    ) { (id, s) ->
+                        saved.SaveableStateProvider(id) {
+                            Box(Modifier.fillMaxSize().then(if (s is Screen.Hub || s is Screen.Collection) Modifier.statusBarsPadding() else Modifier)) {
+                                ScreenContent(s, vm, actions)
+                            }
                         }
                     }
                     if (screen is Screen.Hub || screen is Screen.Collection) MiniPlayer(vm)
@@ -253,6 +268,8 @@ private fun ScreenContent(s: Screen, vm: MainViewModel, actions: Actions) {
         is Screen.MergeAlbums -> MergeAlbumsScreen(vm, s.firstAlbumId)
         is Screen.EditAsAlbum -> EditAsAlbumScreen(vm, actions, s.songIds)
         Screen.Consolidate -> ConsolidateScreen(vm)
+        Screen.Licenses -> LicensesScreen(vm)
+        is Screen.LicenseText -> LicenseTextScreen(s.name)
         Screen.Search -> SearchScreen(vm, actions)
         Screen.Settings -> SettingsScreen(vm, actions)
     }

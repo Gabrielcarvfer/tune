@@ -73,6 +73,9 @@ sealed interface Screen {
     data class EditAsAlbum(val songIds: List<Long>) : Screen
     /** Scanning the collection and merging albums split across releases. */
     data object Consolidate : Screen
+    /** The open-source licences page, and one component's licence text. */
+    data object Licenses : Screen
+    data class LicenseText(val name: String) : Screen
 }
 
 private const val TAG = "Tune"
@@ -149,6 +152,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val backStack = mutableStateListOf<Screen>(Screen.Hub)
 
+    /**
+     * A unique id per back stack entry, alongside [backStack]: each entry keeps
+     * its own saved UI state (scroll positions, the pivot page) under it, so
+     * going back returns to exactly where you were.
+     */
+    val backStackIds = mutableStateListOf(0L)
+    private var nextEntryId = 1L
+
     /** System consent dialogs (scoped-storage write/delete) for the activity to launch. */
     private val _consent = Channel<IntentSender>(Channel.BUFFERED)
     val consentRequests = _consent.receiveAsFlow()
@@ -206,12 +217,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // --- navigation -------------------------------------------------------
 
     fun navigate(s: Screen) {
-        if (backStack.lastOrNull() != s) backStack.add(s)
+        if (backStack.lastOrNull() != s) {
+            backStack.add(s)
+            backStackIds.add(nextEntryId++)
+        }
     }
 
     fun back(): Boolean {
         if (backStack.size <= 1) return false
         backStack.removeAt(backStack.lastIndex)
+        backStackIds.removeAt(backStackIds.lastIndex)
         return true
     }
 
@@ -449,7 +464,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- scanning the collection --------------------------------------------
 
-    data class ScanState(val running: Boolean = false, val done: Int = 0, val total: Int = 0, val failed: Int = 0, val error: String? = null)
+    /**
+     * A scan's progress: [done] of the [total] songs it set out to scan, after
+     * [already] songs that were scanned before (and are skipped).
+     */
+    data class ScanState(
+        val running: Boolean = false,
+        val done: Int = 0,
+        val total: Int = 0,
+        val failed: Int = 0,
+        val error: String? = null,
+        val already: Int = 0,
+        /** Changes when the saved answers are forgotten, so counts are redone. */
+        val generation: Int = 0,
+    )
 
     private val _scan = MutableStateFlow(ScanState())
     /** Progress of "scan collection": fingerprinting and looking up every song once. */
@@ -469,33 +497,38 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (key.isEmpty()) return toast("set your AcoustID API key first")
         if (_offline.value) return toast("web requests are turned off")
         scanJob = viewModelScope.launch {
-            val todo = withContext(Dispatchers.IO) {
-                _library.value.songs.sortedBy { it.path }.filter { matchCache.lookup(it) == null }
-            }
-            _scan.value = ScanState(running = true, total = todo.size)
+            // Only songs without a saved answer; the others are skipped.
+            val songs = _library.value.songs
+            val todo = withContext(Dispatchers.IO) { songs.sortedBy { it.path }.filter { matchCache.lookup(it) == null } }
+            _scan.value = ScanState(running = true, total = todo.size, already = songs.size - todo.size, generation = _scan.value.generation)
+            var done = 0
             var failed = 0
             var inARow = 0
-            for ((i, song) in todo.withIndex()) {
-                try {
-                    acoustId.lookupSong(song, key)
-                    inARow = 0
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    android.util.Log.w(TAG, "can't identify ${song.path}", e)
-                    failed++
-                    inARow++
-                    // AcoustID refusing (say, a bad key) or no network would fail every song: stop.
-                    if (e is com.tune.music.data.OfflineException || e.message?.startsWith("acoustid:") == true || inARow >= 5) {
-                        _scan.value = _scan.value.copy(running = false, done = i + 1, failed = failed, error = e.message ?: e.toString())
-                        return@launch
+            try {
+                // Fingerprints are computed several at a time, ahead of the lookups.
+                acoustId.lookupSongs(todo, key) { song, result ->
+                    done++
+                    result.onSuccess { inARow = 0 }.onFailure { e ->
+                        android.util.Log.w(TAG, "can't identify ${song.path}", e)
+                        failed++
+                        // A file that can't be decoded is just skipped; network trouble counts.
+                        if (e is java.io.IOException) inARow++
+                        // AcoustID refusing (say, a bad key) or no network would fail every song: stop.
+                        if (e is com.tune.music.data.OfflineException || e.message?.startsWith("acoustid:") == true || inARow >= 5) {
+                            throw ScanStopped(e)
+                        }
                     }
+                    _scan.value = _scan.value.copy(done = done, failed = failed)
                 }
-                _scan.value = _scan.value.copy(done = i + 1, failed = failed)
+            } catch (e: ScanStopped) {
+                _scan.value = _scan.value.copy(running = false, done = done, failed = failed, error = e.cause?.message ?: e.toString())
+                return@launch
             }
             _scan.value = _scan.value.copy(running = false)
         }
     }
+
+    private class ScanStopped(cause: Throwable) : Exception(cause)
 
     fun stopScan() {
         scanJob?.cancel()
@@ -507,7 +540,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         stopScan()
         viewModelScope.launch(Dispatchers.IO) {
             matchCache.clear()
-            _scan.value = ScanState()
+            _scan.value = ScanState(generation = _scan.value.generation + 1)
         }
     }
 

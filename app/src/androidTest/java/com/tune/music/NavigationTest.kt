@@ -89,6 +89,32 @@ class NavigationTest : TuneTest() {
         assertTrue("grid closed", compose.onAllNodesWithTagCount("jumpgrid:d") == 0)
     }
 
+    @Test fun albumsCanBeShownAsAGrid() {
+        openCollection("albums")
+        tag("albums:list").assertExists()
+        goHome()
+        tap("settings")
+        scrollTo(hasText("show albums as a grid"))
+        tap("show albums as a grid")
+        waitFor("grid setting on") { vm.albumGrid.value }
+
+        openCollection("albums")
+        tag("albums:grid").assertExists()
+        // Two covers side by side on one row.
+        val album = boundsOf(tag("albumtile:${TestMedia.ALBUM}"))
+        val single = boundsOf(tag("albumtile:${TestMedia.SINGLE}"))
+        assertEquals(album.top, single.top, 2f)
+        assertTrue(single.left > album.right)
+        // Letter tiles and taps work as in the list.
+        text("t").performClick() // the on-screen letter tile (neighbouring pivot pages have one too)
+        compose.waitForIdle()
+        tag("jumpgrid:t").performClick()
+        compose.waitForIdle()
+        tag("albumtile:${TestMedia.SINGLE}").performClick()
+        waitFor("album page") { screen is Screen.AlbumPage }
+        text("Delta Tune")
+    }
+
     @Test fun albumPageListsTracksInDiscOrder() {
         openCollection("albums")
         tap(TestMedia.ALBUM)

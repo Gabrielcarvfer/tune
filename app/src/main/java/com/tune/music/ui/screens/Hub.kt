@@ -114,11 +114,7 @@ private fun AlbumTiles(albums: List<Album>, actions: Actions) {
         modifier = Modifier.padding(end = 12.dp),
     ) {
         items(albums, key = { it.id }) { a ->
-            Column(Modifier.metroClick(onLongClick = { actions.albumMenu(a) }) { actions.vm.navigate(Screen.AlbumPage(a.id)) }) {
-                AlbumArt(a.id, a.songs.firstOrNull()?.uri, Modifier.fillMaxWidth().aspectRatio(1f))
-                MTextEllipsis(a.title, MetroType.normal, modifier = Modifier.padding(top = 4.dp))
-                MTextEllipsis(a.artist, MetroType.small, color = Metro.colors.subtle)
-            }
+            AlbumTile(a, onLongClick = { actions.albumMenu(a) }) { actions.vm.navigate(Screen.AlbumPage(a.id)) }
         }
     }
 }

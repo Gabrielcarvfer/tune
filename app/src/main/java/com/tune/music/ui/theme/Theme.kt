@@ -52,7 +52,7 @@ val Accents = listOf(
     "taupe" to Color(0xFF87794E),
 )
 
-val DarkBackground = Color(0xFF1A1A1A)
+val DarkBackground = Color(0xFF2B2B2B)
 
 @Immutable
 data class MetroColors(
@@ -75,8 +75,8 @@ data class MetroColors(
 )
 
 val LocalMetro = staticCompositionLocalOf {
-    MetroColors(DarkBackground, Color.White, Color(0xFF999999), Accents[0].second, Color(0xFF262626),
-        Color.White, Color.Black, Color(0xFF333333), Color(0xFFBFBFBF), Color(0xFFCCCCCC), Color.Transparent,
+    MetroColors(DarkBackground, Color.White, Color(0xFF999999), Accents[0].second, Color(0xFF393939),
+        Color.White, Color.Black, Color(0xFF474747), Color(0xFFBFBFBF), Color(0xFFCCCCCC), Color.Transparent,
         Color.White, true)
 }
 
@@ -124,10 +124,10 @@ fun TuneTheme(accent: Color, light: Boolean, accentTitles: Boolean = false, cont
         foreground = Color.White,
         subtle = Color(0xFF999999),
         accent = accent,
-        chrome = Color(0xFF262626),
+        chrome = Color(0xFF393939),
         menuBackground = Color.White,
         menuForeground = Color.Black,
-        disabled = Color(0xFF333333),
+        disabled = Color(0xFF474747),
         boxBorder = Color(0xFFBFBFBF),
         boxIdle = Color(0xFFCCCCCC),
         divider = Color.Transparent,

@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
@@ -51,6 +54,7 @@ fun BarPage(
 @Composable
 fun ArtistScreen(vm: MainViewModel, actions: Actions, name: String) {
     val lib by vm.library.collectAsState()
+    val grid by vm.albumGrid.collectAsState()
     val artist = lib.artist(name)
     if (artist == null) {
         LaunchedEffect(lib.version) { if (lib.loaded) vm.back() }
@@ -68,7 +72,19 @@ fun ArtistScreen(vm: MainViewModel, actions: Actions, name: String) {
         ),
     ) {
         Pivot(artist.name, listOf("albums", "songs")) { page ->
-            if (page == 0) {
+            if (page == 0 && grid) {
+                LazyVerticalGrid(
+                    GridCells.Fixed(2),
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(artist.albums, key = { it.id }) { a ->
+                        AlbumTile(a, showArtist = false, onLongClick = { actions.albumMenu(a) }) { vm.navigate(Screen.AlbumPage(a.id)) }
+                    }
+                }
+            } else if (page == 0) {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
                     itemsIndexed(artist.albums, key = { _, a -> a.id }) { _, a ->
                         AlbumRow(a, showArtist = false, onLongClick = { actions.albumMenu(a) }) { vm.navigate(Screen.AlbumPage(a.id)) }

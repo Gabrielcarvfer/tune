@@ -45,6 +45,8 @@ object TestMedia {
         val year: String = "2020",
         val disc: Int = 1,
         val cover: Int? = null,
+        /** Embedded cover image (JPEG); overrides [cover]. */
+        val art: ByteArray? = null,
     )
 
     val ALPHA = Spec("Alpha Song", BAND, ALBUM, 1, 7, 440.0, cover = Color.RED)
@@ -67,7 +69,7 @@ object TestMedia {
             spec.title, spec.artist, spec.album, spec.albumArtist, spec.genre, spec.year,
             spec.track.toString(), spec.disc.toString(),
         )
-        val art = spec.cover?.let { jpeg(it) }
+        val art = spec.art ?: spec.cover?.let { jpeg(it) }
         check(TagLib.nativeWrite(out.path, values, art, art?.let { "image/jpeg" })) { "tagging ${spec.title}" }
     }
 

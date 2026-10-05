@@ -12,8 +12,9 @@ android {
         applicationId = "com.tune.music"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // CI passes a growing number for store uploads; local builds are 1.
+        versionCode = System.getenv("TUNE_VERSION_CODE")?.toInt() ?: 1
+        versionName = "1.0.$versionCode"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
@@ -36,8 +37,21 @@ android {
         sourceSets.getByName("release").res.srcDir(branding)
     }
 
+    // Release signing for store uploads, from the environment (CI secrets).
+    // Without it, release builds are unsigned.
+    val keystore = System.getenv("TUNE_KEYSTORE")
+    if (keystore != null) {
+        signingConfigs.create("release") {
+            storeFile = file(keystore)
+            storePassword = System.getenv("TUNE_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("TUNE_KEY_ALIAS")
+            keyPassword = System.getenv("TUNE_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

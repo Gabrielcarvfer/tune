@@ -1,7 +1,13 @@
-# Tune
+<p align="center">
+  <img src="art/tune-logo.svg" width="128" alt="Tune logo">
+</p>
 
-A music player for Android in the style of the Windows Phone 8 music app: Kotlin,
-Jetpack Compose, Media3, and a little C++ (Chromaprint and TagLib via JNI).
+<h1 align="center">Tune</h1>
+
+<p align="center">A music player for Android in the style of the Windows Phone 8 music app.</p>
+
+Built with Kotlin, Jetpack Compose and Media3, plus a little C++ (Chromaprint
+and TagLib via JNI).
 
 ## Features
 
@@ -47,6 +53,100 @@ Jetpack Compose, Media3, and a little C++ (Chromaprint and TagLib via JNI).
   This way you can dress the app up privately without that artwork ever being
   part of the source.
 
+## Using Tune
+
+The numbers in the screenshots match the steps under them.
+
+### Choosing where your music is
+
+By default every song on the phone is in the collection. To use only one
+folder, such as a folder synced with Resilio Sync or Syncthing:
+
+<p>
+  <img src="docs/guide/folder-1.png" width="200" alt="Hub with settings marked">
+  <img src="docs/guide/folder-2.png" width="200" alt="Settings, music folder section">
+  <img src="docs/guide/folder-3.png" width="200" alt="Android folder picker">
+  <img src="docs/guide/folder-4.png" width="200" alt="Allow access to the folder">
+</p>
+
+1. On the music hub, tap **settings**.
+2. Under **music folder**, tap **choose folder**.
+3. Open your music folder in Android's picker and tap **Use this folder**.
+4. Tap **Allow**. Only songs in that folder and its subfolders are now in the
+   collection, and organized files stay inside it.
+
+**whole phone** goes back to every song on the phone. In that case organized
+files go to Android's `Music` folder.
+
+#### Folders outside Music (synced folders)
+
+Android only lets apps move songs within `Music/`, `Download/` and similar
+folders. For a folder anywhere else, Tune leaves files where they are unless
+you give it all files access:
+
+<p>
+  <img src="docs/guide/folder-5.png" width="200" alt="Allow all files access button">
+  <img src="docs/guide/folder-6.png" width="200" alt="Android's all files access switch">
+</p>
+
+5. Tap **allow all files access** (it shows only when the folder needs it).
+6. Turn on **Allow access to manage all files**, then go back. Android
+   restarts Tune when this changes. From then on, edited and organized files
+   are renamed inside your folder, so your sync tool sees the changes.
+
+### Editing song and album info
+
+Changes are written into the music files themselves, so other players and
+devices see them too. With **move files after editing info** on (settings →
+organizing files), saved files are also moved to
+`<album artist>/<album>/<NN>-<title>.<ext>` inside the music folder.
+
+<p>
+  <img src="docs/guide/edit-1.png" width="200" alt="Song menu with edit info">
+  <img src="docs/guide/edit-2.png" width="200" alt="Song editor">
+  <img src="docs/guide/edit-3.png" width="200" alt="Album menu with edit album info">
+  <img src="docs/guide/edit-4.png" width="200" alt="Album editor">
+</p>
+
+1. Touch and hold a song (in any list) and tap **edit info**.
+2. Change any field. The bottom of the page shows where the file will be moved.
+3. Tap ✓ (save). Android may ask once to allow changes to the file.
+4. For a whole album, open it and tap **⋯** on the app bar.
+5. Tap **edit album info**.
+6. Tap the cover to pick a new image from your phone.
+7. Change the album, album artist, genre, year or track titles.
+8. Tap ✓ (save) to update every song on the album.
+
+### Finding info online (AcoustID)
+
+Tune can recognise songs by their sound, like MusicBrainz Picard. This fixes
+badly tagged files: titles, artists, album, year, track numbers and cover.
+
+<p>
+  <img src="docs/guide/acoustid-1.png" width="200" alt="AcoustID key in settings">
+  <img src="docs/guide/acoustid-2.png" width="200" alt="Album menu with find album info online">
+  <img src="docs/guide/acoustid-3.png" width="200" alt="Releases found">
+  <img src="docs/guide/acoustid-4.png" width="200" alt="Release details with cover choice">
+</p>
+
+First, once only, add a free AcoustID key:
+
+1. In settings → **finding info online**, tap **get a key**. Sign in on
+   acoustid.org and register an application (any name, such as "Tune"); it
+   shows you an API key.
+2. Paste the key into **acoustid api key**.
+3. Tap **save key**.
+
+Then, for an album (or a single song, from its menu: **find info online**):
+
+4. Open the album and tap **⋯**.
+5. Tap **find album info online**. Tune fingerprints each song and looks it up.
+6. Pick the release you own. The ones that match the most songs come first.
+7. Check the new titles ("was:" shows the old ones), then choose a cover from
+   the Cover Art Archive, or **keep current**.
+8. Tap ✓ (apply). The tags and cover are written into the files, which are
+   then organized.
+
 ## Setup
 
 1. Open the folder in Android Studio (or build with `./gradlew assembleDebug`).
@@ -54,13 +154,30 @@ Jetpack Compose, Media3, and a little C++ (Chromaprint and TagLib via JNI).
    build downloads Chromaprint 1.5.1, TagLib 2.0.2 and utfcpp through CMake `FetchContent`
    (`app/src/main/cpp/CMakeLists.txt`).
 2. Get a free AcoustID API key at <https://acoustid.org/new-application> and
-   enter it in **settings → finding info online**.
+   enter it in **settings → finding info online** (see
+   [Finding info online](#finding-info-online-acoustid)).
 
 ## Continuous integration
 
 `.github/workflows/android.yml` runs the unit tests and the instrumented tests
 on an Android 15 emulator. When both pass, it builds the debug APK and
 uploads it as the `tune-apk` artifact.
+
+### Running the CI locally
+
+[act](https://github.com/nektos/act) replays the workflow on a Linux machine
+(or WSL) with Docker or Podman and KVM:
+
+```sh
+docker build -t tune-act:24.04 -f tools/ci/act.Containerfile tools/ci
+sudo chmod 666 /dev/kvm   # what the workflow's "Enable KVM" step does on GitHub
+act push -j test --pull=false -P ubuntu-latest=tune-act:24.04   --container-options "--device /dev/kvm" --artifact-server-path /tmp/act-artifacts
+act push -j apk --pull=false -P ubuntu-latest=tune-act:24.04 --artifact-server-path /tmp/act-artifacts
+```
+
+With Podman, use `localhost/tune-act:24.04`. Podman may also need
+`--pids-limit -1 --ulimit nproc=65535:65535` in `--container-options`, because
+Gradle and the emulator start many threads.
 
 ## Tests
 
@@ -83,6 +200,11 @@ uploads it as the `tune-apk` artifact.
 
   Run them on a test device or emulator. They create and delete files under
   `Music/TuneTest*` and `Music/Tune Test*`.
+- **Guide screenshots**: `tools/guide/capture.sh` regenerates the pictures in
+  `docs/guide/` on a connected emulator. The `GuideScreenshots` test drives
+  the app through each flow with a made-up collection and records where to
+  tap; `tools/guide/annotate.py` (Python with Pillow) then draws the numbered
+  arrows. Normal test runs skip it.
 
 ## Notes
 

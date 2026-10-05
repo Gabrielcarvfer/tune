@@ -3,6 +3,7 @@ package com.tune.music.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.tune.music.MainViewModel
 import com.tune.music.Screen
@@ -175,6 +177,19 @@ fun AlbumRow(
                 MetroType.small, color = Metro.colors.subtle,
             )
         }
+    }
+}
+
+/** Square cover with the title and artist under it, for album grids. */
+@Composable
+fun AlbumTile(album: Album, showArtist: Boolean = true, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+    Column(Modifier.testTag("albumtile:${album.title}").metroClick(onLongClick, onClick)) {
+        AlbumArt(album.id, album.songs.firstOrNull()?.uri, Modifier.fillMaxWidth().aspectRatio(1f))
+        MTextEllipsis(album.title, MetroType.normal, modifier = Modifier.padding(top = 4.dp))
+        MTextEllipsis(
+            if (showArtist) album.artist else listOfNotNull(album.year.takeIf { it > 0 }?.toString(), songCount(album.songs.size)).joinToString(" • "),
+            MetroType.small, color = Metro.colors.subtle,
+        )
     }
 }
 

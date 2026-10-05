@@ -12,10 +12,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.tune.music.MainViewModel
 import com.tune.music.Screen
 import com.tune.music.data.Library
+import com.tune.music.ui.components.JumpGrid
 import com.tune.music.ui.components.JumpList
 import com.tune.music.ui.components.MText
 import com.tune.music.ui.components.MTextEllipsis
@@ -53,8 +55,15 @@ private fun Artists(lib: Library, vm: MainViewModel, actions: Actions) {
 @Composable
 private fun Albums(lib: Library, vm: MainViewModel, actions: Actions) {
     if (lib.loaded && lib.albums.isEmpty()) return EmptyNote("No albums.")
-    JumpList(lib.albums, { it.title }, { "al-" + it.id }) { a ->
-        AlbumRow(a, onLongClick = { actions.albumMenu(a) }) { vm.navigate(Screen.AlbumPage(a.id)) }
+    val grid by vm.albumGrid.collectAsState()
+    if (grid) {
+        JumpGrid(lib.albums, { it.title }, { "al-" + it.id }, Modifier.testTag("albums:grid")) { a ->
+            AlbumTile(a, onLongClick = { actions.albumMenu(a) }) { vm.navigate(Screen.AlbumPage(a.id)) }
+        }
+    } else {
+        JumpList(lib.albums, { it.title }, { "al-" + it.id }, Modifier.testTag("albums:list")) { a ->
+            AlbumRow(a, onLongClick = { actions.albumMenu(a) }) { vm.navigate(Screen.AlbumPage(a.id)) }
+        }
     }
 }
 

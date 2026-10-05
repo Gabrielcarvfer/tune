@@ -109,6 +109,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** The folder the library is read from; null means the whole phone. */
     val libraryFolder: StateFlow<LibraryFolder?> = _libraryFolder.asStateFlow()
 
+    private val _albumGrid = MutableStateFlow(prefs.getBoolean("albumGrid", false))
+    /** Show albums as a grid of covers instead of a detailed list. */
+    val albumGrid: StateFlow<Boolean> = _albumGrid.asStateFlow()
+
+    fun setAlbumGrid(on: Boolean) {
+        _albumGrid.value = on
+        prefs.edit().putBoolean("albumGrid", on).apply()
+    }
+
     private val _history = MutableStateFlow(readHistory())
     /** Recently played album ids, newest first. */
     val history: StateFlow<List<Long>> = _history.asStateFlow()

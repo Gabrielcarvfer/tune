@@ -148,6 +148,9 @@ fun SettingsScreen(vm: MainViewModel, actions: Actions) {
         item { Section("collection") }
         item {
             Column(Modifier.padding(horizontal = 24.dp)) {
+                val albumGrid by vm.albumGrid.collectAsState()
+                Toggle("show albums as a grid", albumGrid) { vm.setAlbumGrid(it) }
+                VSpace(8)
                 MText("${lib.artists.size} artists • ${lib.albums.size} albums • ${lib.songs.size} songs", MetroType.normal, color = c.subtle)
                 VSpace(10)
                 MetroButton("refresh collection") { vm.reload(); vm.toast("refreshing") }

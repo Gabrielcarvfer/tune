@@ -9,3 +9,5 @@ cmake-build-*/
 *.log
 # Private launcher name/icon overrides (see README)
 /branding/
+# Private notes, not shared
+/private/

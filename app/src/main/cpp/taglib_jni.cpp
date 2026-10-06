@@ -1,4 +1,4 @@
-// JNI bridge to TagLib. Kotlin side: com.tune.music.data.TagLib.
+// JNI bridge to TagLib. Kotlin side: com.music.tune.data.TagLib.
 #include <jni.h>
 #include <string>
 #include <vector>
@@ -37,7 +37,7 @@ extern "C" {
 
 /** Returns the fields in kKeys order (empty string when missing), or null if unreadable. */
 JNIEXPORT jobjectArray JNICALL
-Java_com_tune_music_data_TagLib_nativeRead(JNIEnv *env, jclass, jstring path) {
+Java_com_music_tune_data_TagLib_nativeRead(JNIEnv *env, jclass, jstring path) {
     TagLib::FileRef f(toUtf8(env, path).c_str(), false);
     if (f.isNull()) return nullptr;
     TagLib::PropertyMap props = f.properties();
@@ -56,7 +56,7 @@ Java_com_tune_music_data_TagLib_nativeRead(JNIEnv *env, jclass, jstring path) {
  * empty string removes it. art != null replaces the pictures with one front cover.
  */
 JNIEXPORT jboolean JNICALL
-Java_com_tune_music_data_TagLib_nativeWrite(JNIEnv *env, jclass, jstring path, jobjectArray values,
+Java_com_music_tune_data_TagLib_nativeWrite(JNIEnv *env, jclass, jstring path, jobjectArray values,
                                            jbyteArray art, jstring artMime) {
     TagLib::FileRef f(toUtf8(env, path).c_str(), false);
     if (f.isNull()) return JNI_FALSE;

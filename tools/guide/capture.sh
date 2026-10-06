@@ -19,7 +19,7 @@ demo notifications -e visible false
 adb shell rm -rf /data/local/tmp/tune-guide
 ./gradlew connectedDebugAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.guide=true \
-  -Pandroid.testInstrumentationRunnerArguments.class=com.tune.music.GuideScreenshots
+  -Pandroid.testInstrumentationRunnerArguments.class=com.music.tune.GuideScreenshots
 
 demo exit
 out=$(mktemp -d)

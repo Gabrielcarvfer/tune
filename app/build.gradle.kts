@@ -5,8 +5,7 @@ plugins {
 }
 
 android {
-    // The code's package; the app's ID on the phone and in Play is applicationId.
-    namespace = "com.tune.music"
+    namespace = "com.music.tune"
     compileSdk = 35
 
     defaultConfig {

@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.music.tune"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.music.tune"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // CI passes a growing number for store uploads; local builds are 1.
         versionCode = System.getenv("TUNE_VERSION_CODE")?.toInt() ?: 1
         versionName = "1.0.$versionCode"

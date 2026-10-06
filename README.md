@@ -14,7 +14,7 @@ and TagLib via JNI).
 - **Metro UI**: the "music" panorama hub (collection / history / new), wrapping
   pivots (artists, albums, songs, playlists, genres), jump lists with letter
   tiles, the tilt effect, round app-bar buttons, context menus, the flying-dots
-  progress bar, and the 20 WP8 accent colours. The theme can follow the system
+  progress bar, and the 20 WP8 accent colours (magenta by default). The theme can follow the system
   or be forced dark (a very dark grey) or light (white), and titles can be
   drawn in the accent colour. The Selawik font stands in for Segoe WP.
 - **Playback**: background playback with lock-screen and notification controls

@@ -8,10 +8,10 @@ from PIL import Image, ImageDraw
 
 HERE = pathlib.Path(__file__).resolve().parent
 
-GRAY = (0x2B, 0x2B, 0x2B)  # launcher_bg
-WHITE = (0xFF, 0xFF, 0xFF)
-# (file name suffix, background, text colour)
-VARIANTS = [("", GRAY, (0xF2, 0xF2, 0xF2)), ("-white", WHITE, GRAY)]
+WHITE = (0xFF, 0xFF, 0xFF)  # launcher_bg
+GRAY = (0x2B, 0x2B, 0x2B)   # the dark theme's background
+# (file name suffix, background, text colour): white is the main one, like the launcher icon.
+VARIANTS = [("", WHITE, GRAY), ("-gray", GRAY, (0xF2, 0xF2, 0xF2))]
 TOP, BOTTOM = (0xE6, 0x16, 0x8A), (0xF8, 0x8E, 0x1E)
 GRADIENT_Y = (27.8, 83.8)  # where the SVG's gradient starts and ends
 STROKE = 4.2

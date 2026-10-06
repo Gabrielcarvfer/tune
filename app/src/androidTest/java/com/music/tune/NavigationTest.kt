@@ -163,8 +163,9 @@ class NavigationTest : TuneTest() {
         assertEquals("follows the system by default", ThemeMode.SYSTEM, vm.themeMode.value)
         tap("light")
         waitFor("light theme") { vm.themeMode.value == ThemeMode.LIGHT }
-        tap("magenta")
-        waitFor("magenta accent") { vm.accent.value == com.music.tune.ui.theme.Accents.first { it.first == "magenta" }.second }
+        assertEquals("magenta by default", com.music.tune.ui.theme.DefaultAccent, vm.accent.value)
+        tap("cobalt")
+        waitFor("cobalt accent") { vm.accent.value == com.music.tune.ui.theme.Accents.first { it.first == "cobalt" }.second }
         tap("dark")
         waitFor("dark theme") { vm.themeMode.value == ThemeMode.DARK }
         tap("system")

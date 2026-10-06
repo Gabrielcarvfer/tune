@@ -1,7 +1,7 @@
 """Draws the Google Play store icon (512x512): the lattice "T" centred on the
-launcher icon's gray and on white, full bleed (Play rounds the corners itself).
+launcher icon's white and on dark gray, full bleed (Play rounds the corners itself).
 
-    python art/play-icon.py   ->  art/play-icon.png, art/play-icon-white.png
+    python art/play-icon.py   ->  art/play-icon.png, art/play-icon-gray.png
 """
 from PIL import Image
 

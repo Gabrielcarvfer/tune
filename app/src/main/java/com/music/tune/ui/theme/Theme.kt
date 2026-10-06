@@ -52,6 +52,9 @@ val Accents = listOf(
     "taupe" to Color(0xFF87794E),
 )
 
+/** What Tune starts with, until another accent is picked in settings. */
+val DefaultAccent = Accents.first { it.first == "magenta" }.second
+
 val DarkBackground = Color(0xFF2B2B2B)
 
 @Immutable
@@ -75,7 +78,7 @@ data class MetroColors(
 )
 
 val LocalMetro = staticCompositionLocalOf {
-    MetroColors(DarkBackground, Color.White, Color(0xFF999999), Accents[0].second, Color(0xFF393939),
+    MetroColors(DarkBackground, Color.White, Color(0xFF999999), DefaultAccent, Color(0xFF393939),
         Color.White, Color.Black, Color(0xFF474747), Color(0xFFBFBFBF), Color(0xFFCCCCCC), Color.Transparent,
         Color.White, true)
 }

@@ -39,7 +39,7 @@ import com.music.tune.data.TagEditor
 import com.music.tune.data.TagValues
 import com.music.tune.playback.PlayerConnection
 import com.music.tune.playback.VolumeNormalizer
-import com.music.tune.ui.theme.Accents
+import com.music.tune.ui.theme.DefaultAccent
 import kotlinx.coroutines.Dispatchers
 import org.json.JSONObject
 import kotlinx.coroutines.withContext
@@ -105,7 +105,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _toast = MutableStateFlow<String?>(null)
     val toast: StateFlow<String?> = _toast.asStateFlow()
 
-    private val _accent = MutableStateFlow(Color(prefs.getInt("accent", Accents.first().second.toArgb())))
+    private val _accent = MutableStateFlow(Color(prefs.getInt("accent", DefaultAccent.toArgb())))
     val accent: StateFlow<Color> = _accent.asStateFlow()
 
     private val _themeMode = MutableStateFlow(readThemeMode())
@@ -682,7 +682,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Re-reads every setting into the app's state (after an import). */
     private fun reapplySettings() {
-        _accent.value = Color(prefs.getInt("accent", Accents.first().second.toArgb()))
+        _accent.value = Color(prefs.getInt("accent", DefaultAccent.toArgb()))
         _themeMode.value = readThemeMode()
         prefs.getBoolean("offline", false).let { Net.blocked = it; _offline.value = it }
         _apiKey.value = prefs.getString("acoustid", "").orEmpty()

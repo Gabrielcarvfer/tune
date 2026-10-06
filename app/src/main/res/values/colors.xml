@@ -1,9 +1,9 @@
 <resources>
     <!-- Launcher icon background, the same in every theme: launchers cache icons and
          mostly don't redraw them when the system theme changes, so a per-theme colour
-         would show whichever was current when the icon was cached. Tune's dark grey
-         suits both light and dark home screens and sets off the magenta-orange mark. -->
-    <color name="launcher_bg">#FF2B2B2B</color>
+         would show whichever was current when the icon was cached. White, like the
+         store icon (art/play-icon.png). -->
+    <color name="launcher_bg">#FFFFFFFF</color>
     <!-- Shown before the UI draws; matches the theme the app will start in -->
     <color name="window_bg">#FFFFFFFF</color>
 </resources>

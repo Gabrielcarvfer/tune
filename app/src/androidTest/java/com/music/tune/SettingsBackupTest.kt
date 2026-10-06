@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.music.tune.data.Loudness
 import com.music.tune.support.TuneTest
 import com.music.tune.ui.theme.Accents
+import com.music.tune.ui.theme.DefaultAccent
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -20,11 +21,11 @@ import java.io.File
 class SettingsBackupTest : TuneTest() {
 
     private val file by lazy { File(ctx.cacheDir, "tune-settings.json").apply { delete() } }
-    private val magenta get() = Accents.first { it.first == "magenta" }.second
+    private val cobalt get() = Accents.first { it.first == "cobalt" }.second
 
     private fun setUp() {
         onVm {
-            setAccent(magenta)
+            setAccent(cobalt)
             setThemeMode(ThemeMode.LIGHT)
             setAcoustIdKey("my-key")
             setAlbumGrid(false)
@@ -38,7 +39,7 @@ class SettingsBackupTest : TuneTest() {
 
     private fun wipe() {
         onVm {
-            setAccent(Accents.first().second)
+            setAccent(DefaultAccent)
             setThemeMode(ThemeMode.SYSTEM)
             setAcoustIdKey("")
             setAlbumGrid(true)
@@ -62,7 +63,7 @@ class SettingsBackupTest : TuneTest() {
         runBlocking { vm.importSettings(Uri.fromFile(file)) }
 
         // Applied straight away, not after a restart.
-        assertEquals(magenta, vm.accent.value)
+        assertEquals(cobalt, vm.accent.value)
         assertEquals(ThemeMode.LIGHT, vm.themeMode.value)
         assertEquals("my-key", vm.acoustIdKey.value)
         assertFalse(vm.albumGrid.value)

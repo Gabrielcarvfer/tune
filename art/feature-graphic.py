@@ -1,7 +1,7 @@
 """Draws the Google Play feature graphic (1024x500): the lattice "T" followed
-by "une" in Selawik Light, on the launcher icon's gray and on white.
+by "une" in Selawik Light, on white (like the launcher icon) and on dark gray.
 
-    python art/feature-graphic.py   ->  art/feature-graphic.png, art/feature-graphic-white.png
+    python art/feature-graphic.py   ->  art/feature-graphic.png, art/feature-graphic-gray.png
 """
 from PIL import Image, ImageDraw, ImageFont
 

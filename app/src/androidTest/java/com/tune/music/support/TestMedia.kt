@@ -47,6 +47,8 @@ object TestMedia {
         val cover: Int? = null,
         /** Embedded cover image (JPEG); overrides [cover]. */
         val art: ByteArray? = null,
+        /** Loudness: 1 is the usual level, 0.5 is 6 dB quieter. */
+        val level: Double = 1.0,
     )
 
     val ALPHA = Spec("Alpha Song", BAND, ALBUM, 1, 7, 440.0, cover = Color.RED)
@@ -64,7 +66,7 @@ object TestMedia {
 
     /** Encodes [spec] as a tagged AAC file at [out]. */
     fun encodeTagged(ctx: Context, spec: Spec, out: File) {
-        encodeAac(out, spec.seconds, spec.baseHz)
+        encodeAac(out, spec.seconds, spec.baseHz, spec.level)
         val values = arrayOf<String?>(
             spec.title, spec.artist, spec.album, spec.albumArtist, spec.genre, spec.year,
             spec.track.toString(), spec.disc.toString(),
@@ -143,7 +145,7 @@ object TestMedia {
     }
 
     /** A little melody (so Chromaprint has something to chew on), AAC-LC mono. */
-    fun encodeAac(out: File, seconds: Int, baseHz: Double) {
+    fun encodeAac(out: File, seconds: Int, baseHz: Double, level: Double = 1.0) {
         val rate = 44100
         val format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, rate, 1).apply {
             setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
@@ -178,7 +180,7 @@ object TestMedia {
                                 val t = (written + k).toDouble() / rate
                                 val f = baseHz * steps[((t * 3).toInt()) % steps.size]
                                 val v = sin(2 * PI * f * t) * 0.5 + sin(2 * PI * f * 2 * t) * 0.2
-                                buf.putShort((v * 22_000).toInt().toShort())
+                                buf.putShort((v * 22_000 * level).toInt().toShort())
                             }
                             codec.queueInputBuffer(i, 0, n * 2, pts, 0)
                             written += n

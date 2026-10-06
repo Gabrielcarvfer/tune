@@ -18,6 +18,11 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.tune.music.MainActivity
+import com.tune.music.TuneApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 /**
  * Background playback. Media3 takes care of the media notification, lock screen
@@ -27,6 +32,8 @@ import com.tune.music.MainActivity
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private var pendingOrder: IntArray? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var normalizer: VolumeNormalizer? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -50,6 +57,7 @@ class PlaybackService : MediaSessionService() {
         player.addListener(object : Player.Listener {
             override fun onTimelineChanged(timeline: Timeline, reason: Int) = applyPendingOrder(player)
         })
+        normalizer = VolumeNormalizer(this, player, (application as TuneApp).loudness, scope).also { it.start() }
         session = MediaSession.Builder(this, player)
             .setSessionActivity(open)
             .setCallback(object : MediaSession.Callback {
@@ -107,6 +115,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        normalizer?.stop()
+        scope.cancel()
         session?.run {
             player.release()
             release()

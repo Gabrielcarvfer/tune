@@ -26,6 +26,7 @@ import com.tune.music.data.LibraryFolder
 import com.tune.music.data.Organizer
 import com.tune.music.data.ReleaseCandidate
 import com.tune.music.data.TrackMatch
+import com.tune.music.data.LoudnessStore
 import com.tune.music.data.MatchCache
 import com.tune.music.data.MediaRepository
 import com.tune.music.data.MusicBrainz
@@ -36,6 +37,7 @@ import com.tune.music.data.TagEdit
 import com.tune.music.data.TagEditor
 import com.tune.music.data.TagValues
 import com.tune.music.playback.PlayerConnection
+import com.tune.music.playback.VolumeNormalizer
 import com.tune.music.ui.theme.Accents
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -542,6 +544,66 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             matchCache.clear()
             _scan.value = ScanState(generation = _scan.value.generation + 1)
         }
+    }
+
+    // --- volume normalization -------------------------------------------------
+
+    private val loudness = (app as TuneApp).loudness
+
+    private val _normalize = MutableStateFlow(prefs.getBoolean(VolumeNormalizer.PREF, true))
+    /** Play every song at a similar loudness (the player reads the same setting). */
+    val normalize: StateFlow<Boolean> = _normalize.asStateFlow()
+
+    fun setNormalize(on: Boolean) {
+        _normalize.value = on
+        prefs.edit().putBoolean(VolumeNormalizer.PREF, on).apply()
+    }
+
+    data class MeasureState(val running: Boolean = false, val done: Int = 0, val total: Int = 0, val already: Int = 0, val failed: Int = 0)
+
+    private val _measure = MutableStateFlow(MeasureState())
+    /** Progress of "measure all songs". */
+    val measure: StateFlow<MeasureState> = _measure.asStateFlow()
+    private var measureJob: kotlinx.coroutines.Job? = null
+
+    /** Songs in the collection whose loudness is measured. */
+    suspend fun measuredCount(): Int = withContext(Dispatchers.IO) { loudness.count(_library.value.songs) }
+
+    /** The measured loudness of [song], if any. */
+    fun loudnessOf(song: Song): com.tune.music.data.Loudness? = loudness.get(song)
+
+    /**
+     * Measures the loudness of every song not measured yet, several at a time.
+     * No web requests: it all happens on the phone.
+     */
+    fun measureCollection() {
+        if (measureJob?.isActive == true) return
+        measureJob = viewModelScope.launch {
+            val songs = _library.value.songs
+            val todo = withContext(Dispatchers.IO) { songs.filter { loudness.get(it) == null } }
+            _measure.value = MeasureState(running = true, total = todo.size, already = songs.size - todo.size)
+            var done = 0
+            var failed = 0
+            try {
+                com.tune.music.data.pipeline(
+                    todo, AcoustId.PARALLEL_FINGERPRINTS, Dispatchers.Default,
+                    prepare = { LoudnessStore.measure(getApplication(), it.uri) },
+                    finish = { song, result ->
+                        done++
+                        result.onSuccess { withContext(Dispatchers.IO) { loudness.put(song, it) } }
+                            .onFailure { failed++; android.util.Log.w(TAG, "can't measure ${song.path}", it) }
+                        _measure.value = _measure.value.copy(done = done, failed = failed)
+                    },
+                )
+            } finally {
+                withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) { loudness.flush() }
+                _measure.value = _measure.value.copy(running = false)
+            }
+        }
+    }
+
+    fun stopMeasuring() {
+        measureJob?.cancel()
     }
 
     /** Albums split across one release, from the saved answers; biggest first. */

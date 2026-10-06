@@ -41,10 +41,12 @@ import com.tune.music.data.Organizer
 import android.provider.DocumentsContract
 import com.tune.music.MainViewModel
 import com.tune.music.Screen
+import com.tune.music.data.Normalization
 import com.tune.music.ThemeMode
 import com.tune.music.ui.components.MText
 import com.tune.music.ui.components.MetroButton
 import com.tune.music.ui.components.MetroTextBox
+import com.tune.music.ui.components.ProgressDots
 import com.tune.music.ui.components.PageHeader
 import com.tune.music.ui.components.VSpace
 import com.tune.music.ui.components.metroClick
@@ -101,6 +103,37 @@ fun SettingsScreen(vm: MainViewModel, actions: Actions) {
             val accentTitles by vm.accentTitles.collectAsState()
             Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
                 Toggle("accent colour for titles", accentTitles) { vm.setAccentTitles(it) }
+            }
+        }
+
+        item { Section("playback") }
+        item {
+            val normalize by vm.normalize.collectAsState()
+            val m by vm.measure.collectAsState()
+            var measured by remember { mutableStateOf(0) }
+            LaunchedEffect(lib.version, m.running) { measured = vm.measuredCount() }
+            Column(Modifier.padding(horizontal = 24.dp)) {
+                Toggle("normalize volume", normalize) { vm.setNormalize(it) }
+                MText(
+                    "Plays every song at a similar loudness, without changing your files: loud songs are turned " +
+                        "down to ${Normalization.TARGET_LUFS.toInt()} LUFS, the ReplayGain level. Songs are measured " +
+                        "as they come up, or all at once here.",
+                    MetroType.small, color = c.subtle, maxLines = 5,
+                )
+                VSpace(8)
+                MText(
+                    if (m.running) "${m.already + m.done} of ${m.already + m.total} songs measured..."
+                    else "$measured of ${lib.songs.size} songs measured",
+                    MetroType.normal, modifier = Modifier.testTag("measure:status"),
+                )
+                if (m.failed > 0) MText("${m.failed} songs couldn't be measured", MetroType.small, color = c.subtle)
+                if (m.running) {
+                    VSpace(8)
+                    ProgressDots()
+                }
+                VSpace(10)
+                if (m.running) MetroButton("stop measuring") { vm.stopMeasuring() }
+                else MetroButton("measure all songs", enabled = measured < lib.songs.size) { vm.measureCollection() }
             }
         }
 

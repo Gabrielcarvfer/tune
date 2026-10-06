@@ -78,6 +78,7 @@ abstract class TuneTest {
             .also { prefs(it) }.commit()
         File(ctx.filesDir, "playlists.json").delete()
         File(ctx.filesDir, "acoustid").deleteRecursively()
+        (ctx.applicationContext as com.tune.music.TuneApp).loudness.clear()
         Net.http = fake
         songs.forEach { uris[it.title] = TestMedia.create(ctx, it) }
         scenario = ActivityScenario.launch(MainActivity::class.java)

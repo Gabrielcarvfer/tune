@@ -21,6 +21,12 @@ and TagLib via JNI).
   (Media3 `MediaSessionService`), play/pause, previous/next, shuffle,
   repeat (off/all/one), seeking, a queue with play next, add to now playing,
   remove and jump, swiping the album art to skip, and "shuffle all".
+- **Volume normalization**: songs play at a similar loudness, so the next one
+  isn't suddenly louder, and your files are never changed. Each song's
+  integrated loudness is measured once on the phone (ITU BS.1770 / EBU R128,
+  like ReplayGain 2), as it comes up to play or all at once (settings →
+  playback → measure all songs). When a song starts, the player turns loud
+  songs down to -18 LUFS; quiet ones play as they are. It can be switched off.
 - **Library management**: playlists (create, rename, reorder, delete), deleting
   songs and albums, and search.
 - **Metadata editing**: tags are written into the files themselves with

@@ -42,6 +42,9 @@ data class PlayerState(
 /** Talks to [PlaybackService] through a Media3 [MediaController]. */
 class PlayerConnection(private val context: Context, private val scope: CoroutineScope) {
     private var controller: MediaController? = null
+
+    /** The player's output volume (set by volume normalization). */
+    val volume: Float get() = controller?.volume ?: 1f
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
     private var ticker: Job? = null
@@ -263,6 +266,11 @@ fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
             .setArtworkUri(artUri.toString().toUri())
             .setIsPlayable(true)
             .setIsBrowsable(false)
+            // The player's volume normalization keys its loudness table by id and length.
+            .setExtras(Bundle().apply { putLong(EXTRA_DURATION_MS, durationMs) })
             .build(),
     )
     .build()
+
+/** MediaMetadata extra: the song's length, for the loudness table. */
+const val EXTRA_DURATION_MS = "com.tune.music.durationMs"

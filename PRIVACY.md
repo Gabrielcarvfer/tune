@@ -15,6 +15,8 @@ any of your data.
 - **Your settings and playlists** (theme, accent colour, music folder, your
   AcoustID key, playlists, recently played). They are stored only in the app's
   private storage on your phone and are deleted when you uninstall Tune.
+- **Measured loudness** of each song, for volume normalization. Measured on
+  the phone, kept only in the app's private storage.
 - **Saved lookups**: the audio fingerprints Tune computed and the answers
   AcoustID gave, so songs aren't looked up again. Also only in the app's
   private storage; "forget scan" or uninstalling deletes them.

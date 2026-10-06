@@ -596,8 +596,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     },
                 )
             } finally {
-                withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) { loudness.flush() }
+                // Mark it stopped first: after a stop (a cancellation), returning
+                // from withContext below would throw before getting further.
                 _measure.value = _measure.value.copy(running = false)
+                withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) { loudness.flush() }
             }
         }
     }

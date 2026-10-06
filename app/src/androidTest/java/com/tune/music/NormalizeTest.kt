@@ -86,3 +86,25 @@ class NormalizeTest : TuneTest() {
         }
     }
 }
+
+/** Stopping "measure all songs" stops it. */
+@RunWith(AndroidJUnit4::class)
+class StopMeasuringTest : TuneTest() {
+    override val songs = (1..8).map { TestMedia.Spec("Long Song %02d".format(it), TestMedia.BAND, "Tune Test Long", it, 40, 200.0 + it * 23) }
+
+    @Test fun stopStopsTheMeasuring() {
+        tap("settings")
+        scrollTo(hasText("measure all songs"))
+        tap("measure all songs")
+        waitFor("measuring") { vm.measure.value.running }
+        scrollTo(hasText("stop measuring"))
+        tap("stop measuring")
+        waitFor("stopped", 5_000) { !vm.measure.value.running }
+        val done = vm.measure.value.done
+        assertTrue("stopped before the end ($done of 8)", done < 8)
+        // And it stays stopped: nothing more gets measured.
+        Thread.sleep(3_000)
+        assertEquals(done, vm.measure.value.done)
+        text("measure all songs")
+    }
+}

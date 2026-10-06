@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Tune"
 include(":app")
+include(":baselineprofile")

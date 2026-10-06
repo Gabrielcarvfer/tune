@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("androidx.baselineprofile")
 }
 
 android {
@@ -54,8 +55,16 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("release")
-            isMinifyEnabled = false
+            // R8: smaller and much faster (Compose especially), as shipped to the store.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        // `-Ptune.minify` shrinks debug builds the same way, so the instrumented
+        // tests can check that R8 didn't strip anything the app needs.
+        if (providers.gradleProperty("tune.minify").isPresent) debug {
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-tests.pro")
         }
     }
     compileOptions {
@@ -72,6 +81,14 @@ android {
         unitTests.isReturnDefaultValues = true
         animationsDisabled = true
     }
+}
+
+baselineProfile {
+    // The profile is checked in (src/release/generated/baselineProfiles); it is
+    // only regenerated on purpose, with :app:generateBaselineProfile.
+    automaticGenerationDuringBuild = false
+    // Also lays out the dex so startup code is read in one go.
+    dexLayoutOptimization = true
 }
 
 dependencies {
@@ -93,6 +110,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Installs the baseline profile (baselineprofile/, generated on the
+    // emulator) so the code used at startup and while scrolling is compiled
+    // ahead of time, also for sideloaded APKs.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    baselineProfile(project(":baselineprofile"))
 
     testImplementation("junit:junit:4.13.2")
     // The android.jar stubs have no org.json implementation.

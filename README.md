@@ -296,7 +296,7 @@ ahead.
 ## Setup
 
 1. Open the folder in Android Studio (or build with `./gradlew assembleDebug`).
-   It needs the Android SDK 35, NDK 27.2.12479018 and CMake 3.22.1. The first
+   It needs the Android SDK 36, NDK 27.2.12479018 and CMake 3.22.1. The first
    build downloads Chromaprint 1.5.1, TagLib 2.0.2 and utfcpp through CMake `FetchContent`
    (`app/src/main/cpp/CMakeLists.txt`).
 2. Get a free AcoustID API key at <https://acoustid.org/new-application> and
@@ -354,11 +354,38 @@ Gradle and the emulator start many threads.
   under `Music/TuneTest*` and `Music/Tune Test*`. Gradle runs them on every
   attached device, so with a phone attached set
   `ANDROID_SERIAL=emulator-5554` (or your emulator's serial) first.
+
+  With `-Ptune.minify` they run against an app shrunk by R8 as in a release,
+  to catch anything R8 removed that the app needs
+  (`app/proguard-tests.pro` keeps what the tests themselves call).
 - **Guide screenshots**: `tools/guide/capture.sh` regenerates the pictures in
   `docs/guide/` on a connected emulator. The `GuideScreenshots` test drives
   the app through each flow with a made-up collection and records where to
   tap; `tools/guide/annotate.py` (Python with Pillow) then draws the numbered
   arrows. Normal test runs skip it.
+
+## Performance
+
+Release builds are shrunk and optimized by R8, and ship a baseline profile
+(`app/src/release/generated/baselineProfiles/`): the list of code that runs at
+startup and while browsing, which Android compiles ahead of time when the app
+is installed instead of interpreting it at first.
+
+The `baselineprofile` module holds the scripted runs through the app
+(`Journeys.kt`: the hub, the songs, albums and artists lists, playing a song,
+now playing and settings). On the emulator, with music on it:
+
+- `./gradlew :app:generateBaselineProfile` records a new profile. Do it after
+  bigger UI changes and commit the result.
+- `./gradlew :baselineprofile:connectedBenchmarkReleaseAndroidTest` times cold
+  startup and scrolling with and without the profile. Emulator timings are only
+  good for comparing the two; the results are in
+  `baselineprofile/build/outputs/connected_android_test_additional_output/`.
+  When the profile was added, it cut the median cold start from 1.37 s to
+  1.20 s, and slow frames while scrolling (90th percentile) from 58 to 51 ms.
+
+Both install a release build signed with the debug key and uninstall Tune
+afterwards, so run them on the emulator only.
 
 ## Notes
 

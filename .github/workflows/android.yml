@@ -215,5 +215,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.music.tune
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          # R8 renames classes; with this, Play shows crash reports with the real names.
+          mappingFile: app/build/outputs/mapping/release/mapping.txt
           track: ${{ vars.PLAY_TRACK || 'internal' }}
           status: ${{ vars.PLAY_STATUS || 'completed' }}

@@ -131,11 +131,12 @@ class GuideScreenshots : TuneTest() {
     private fun settingsAt(page: String, title: String) {
         openSettings(page)
         val list = tag("settings:$page")
+        val listTop = boundsOf(list).top
         // Sections near the end can't reach the top: then the list stays at its end.
         for (i in 0..40) {
             if (runCatching { list.performScrollToIndex(i) }.isFailure) break
             compose.waitForIdle()
-            if (isShown(title) && boundsOf(text(title)).top < 300) return
+            if (isShown(title) && boundsOf(text(title)).top < listTop + 150) return
         }
         text(title)
     }
@@ -262,6 +263,18 @@ class GuideScreenshots : TuneTest() {
         tap("search")
         text("${GuideMedia.RELEASE} (Deluxe)")
         shot("search-2", mark(2, tag("field:album")), mark(3, text("search"), side = "right"), mark(4, text(GuideMedia.RELEASE)))
+    }
+
+    @Test fun evenVolume() {
+        settingsAt("playback", "volume")
+        shot("volume-1", mark(1, text("normalize volume")), mark(2, text("measure all songs")))
+        tap("measure all songs")
+        waitFor("measured", 120_000) { vm.measure.value.let { !it.running && it.already + it.done == vm.library.value.songs.size } }
+    }
+
+    @Test fun backingUpSettings() {
+        settingsAt("about", "backup")
+        shot("backup-1", mark(1, text("export settings")), mark(2, text("import settings")))
     }
 
     @Test fun scanningAndConsolidating() {

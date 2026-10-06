@@ -5,6 +5,10 @@
 set -e
 cd "$(dirname "$0")/../.."
 
+# The tests reset Tune's data: only ever on the emulator, never a phone that
+# happens to be attached (adb and Gradle both follow ANDROID_SERIAL).
+export ANDROID_SERIAL="${ANDROID_SERIAL:-emulator-5554}"
+
 # Without all files access, so the "allow all files access" steps show up.
 adb shell appops set com.music.tune MANAGE_EXTERNAL_STORAGE default || true
 # A tidy status bar.

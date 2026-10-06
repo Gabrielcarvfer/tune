@@ -27,6 +27,8 @@ and TagLib via JNI).
   like ReplayGain 2), as it comes up to play or all at once (settings →
   playback → measure all songs). When a song starts, the player turns loud
   songs down to -18 LUFS; quiet ones play as they are. It can be switched off.
+- **Settings backup**: export every setting, playlists, history, measured
+  loudness and saved scans to one JSON file, and import it in another install.
 - **Library management**: playlists (create, rename, reorder, delete), deleting
   songs and albums, and search.
 - **Metadata editing**: tags are written into the files themselves with
@@ -237,6 +239,32 @@ most of them.
 
 **forget scan** deletes the saved fingerprints and answers.
 
+### Playing at an even volume
+
+So that one song isn't suddenly much louder than the last, Tune turns loud
+songs down to a common level while playing. Your files aren't changed.
+
+<p>
+  <img src="docs/guide/volume-1.png" width="200" alt="Volume settings on the playback page">
+</p>
+
+1. Settings → **playback**: **normalize volume** is on by default.
+2. Songs are measured as they come up to play; **measure all songs** does the
+   whole collection now, in the background (you can stop and continue later).
+
+### Backing up and moving your settings
+
+<p>
+  <img src="docs/guide/backup-1.png" width="200" alt="Export and import on the about page">
+</p>
+
+1. Settings → **about** → **export settings** saves everything (settings,
+   AcoustID key, music folder, playlists, history, measured loudness, saved
+   scans) to one JSON file.
+2. **import settings** on another install reads it back and applies it.
+   Measured loudness and scans are tied to this phone's songs, so they only
+   carry over on the same phone.
+
 ## Setup
 
 1. Open the folder in Android Studio (or build with `./gradlew assembleDebug`).
@@ -273,7 +301,10 @@ Gradle and the emulator start many threads.
 
 - **Unit tests** (JVM, fast): `./gradlew testDebugUnitTest`. These cover tag
   helpers, file-organizer paths, AcoustID response parsing and Picard-style
-  release ranking.
+  release ranking, MusicBrainz search and track matching, consolidation, the
+  saved scans, the rate limiter and kill switch, the fingerprinting pipeline,
+  the loudness meter (against the EBU reference tone), settings backup and
+  the licence files.
 - **Functional tests** (on a device or emulator):
   `./gradlew connectedDebugAndroidTest`. Each test generates its own tagged
   audio files (AAC encoded on the device, tagged with TagLib, published through
@@ -285,11 +316,16 @@ Gradle and the emulator start many threads.
     Escape and Back, and the media play/pause/next keys.
   - **Features:** playback, the queue, shuffle and repeat, playlists, tag
     editing, organizing (including empty-folder cleanup), deleting through
-    the system consent dialog, and the identify flow with release and cover
-    picking.
+    the system consent dialog, the identify flow with release and cover
+    picking, search by name, merging albums, scanning and consolidating,
+    the network kill switch, volume normalization, going back to where you
+    were, the settings pages, and exporting and importing settings.
 
-  Run them on a test device or emulator. They create and delete files under
-  `Music/TuneTest*` and `Music/Tune Test*`.
+  Run them on an emulator, not on a phone you use: every test starts by
+  resetting Tune's settings and saved data, and they create and delete files
+  under `Music/TuneTest*` and `Music/Tune Test*`. Gradle runs them on every
+  attached device, so with a phone attached set
+  `ANDROID_SERIAL=emulator-5554` (or your emulator's serial) first.
 - **Guide screenshots**: `tools/guide/capture.sh` regenerates the pictures in
   `docs/guide/` on a connected emulator. The `GuideScreenshots` test drives
   the app through each flow with a made-up collection and records where to
@@ -302,11 +338,6 @@ Gradle and the emulator start many threads.
 - Editing, moving and deleting files on Android 11+ goes through the system
   consent dialog, which asks once per batch.
 - The app is minSdk 26.
-- Settings → about → backup → **export settings** saves every setting
-  (including the AcoustID key and music folder), playlists, history,
-  measured loudness and saved scans to one JSON file; **import settings**
-  reads it back, e.g. to move to another install. Loudness and scans are
-  keyed by the phone's media ids, so they only carry over on the same phone.
 - Debug builds, local or from CI, are all signed with the same key
   (`tools/signing/debug.keystore`), so a new build installs over the old one
   and keeps its settings, playlists, history and saved fingerprints. Store

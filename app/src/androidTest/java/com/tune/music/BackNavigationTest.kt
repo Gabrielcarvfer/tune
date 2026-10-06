@@ -70,7 +70,7 @@ class BackNavigationTest : TuneTest() {
 @RunWith(AndroidJUnit4::class)
 class LicensesTest : TuneTest() {
     @Test fun everyComponentAndItsLicenceTextAreShown() {
-        tap("settings")
+        openSettings("about")
         scrollTo(hasText("open-source licences"))
         tap("open-source licences")
         waitFor("licences") { screen == Screen.Licenses }

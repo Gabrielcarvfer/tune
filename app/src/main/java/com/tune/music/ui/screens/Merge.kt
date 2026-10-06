@@ -150,9 +150,9 @@ fun ConsolidateScreen(vm: MainViewModel) {
                     )
                     VSpace(12)
                     if (key.isEmpty()) {
-                        MText("This needs an AcoustID API key (settings → finding info online).", MetroType.normal, maxLines = 3)
+                        MText("This needs an AcoustID API key (settings → network).", MetroType.normal, maxLines = 3)
                         VSpace(8)
-                        MetroButton("open settings") { vm.navigate(Screen.Settings) }
+                        MetroButton("open settings") { vm.openSettings("network") }
                     } else {
                         ScanControls(vm, scanned, lib.songs.size)
                     }

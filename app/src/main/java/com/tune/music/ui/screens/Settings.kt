@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import com.tune.music.ui.components.Pivot
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -54,195 +56,248 @@ import com.tune.music.ui.theme.Accents
 import com.tune.music.ui.theme.Metro
 import com.tune.music.ui.theme.MetroType
 
+/** The settings pages, in pivot order. */
+val SETTINGS_PAGES = listOf("playback", "collection", "network", "appearance", "about")
+
+/**
+ * Settings as a pivot: one page per area (the biggest titles), sections
+ * within a page (smaller titles), then the settings themselves.
+ */
 @Composable
 fun SettingsScreen(vm: MainViewModel, actions: Actions) {
-    val accent by vm.accent.collectAsState()
-    val mode by vm.themeMode.collectAsState()
-    val key by vm.acoustIdKey.collectAsState()
-    val organize by vm.autoOrganize.collectAsState()
-    val lib by vm.library.collectAsState()
-    var keyText by remember { mutableStateOf(key) }
-    val ctx = LocalContext.current
-    val c = Metro.colors
-
-    LazyColumn(
-        Modifier.fillMaxSize().statusBarsPadding().imePadding(),
-        contentPadding = PaddingValues(bottom = 64.dp),
-    ) {
-        item { PageHeader("music", "settings") }
-
-        item { Section("background") }
-        item {
-            Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Choice("system", mode == ThemeMode.SYSTEM) { vm.setThemeMode(ThemeMode.SYSTEM) }
-                Choice("dark", mode == ThemeMode.DARK) { vm.setThemeMode(ThemeMode.DARK) }
-                Choice("light", mode == ThemeMode.LIGHT) { vm.setThemeMode(ThemeMode.LIGHT) }
-            }
-        }
-
-        item { Section("accent colour") }
-        items(Accents.chunked(4)) { row ->
-            Row(Modifier.padding(horizontal = 24.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { (name, color) ->
-                    Column(Modifier.weight(1f).metroClick { vm.setAccent(color) }) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
-                                .background(color)
-                                .border(if (color == accent) 3.dp else 0.dp, c.foreground),
-                        )
-                        MText(name, MetroType.small, color = if (color == accent) c.foreground else c.subtle)
-                    }
-                }
-                repeat(4 - row.size) { Box(Modifier.weight(1f)) }
-            }
-        }
-
-        item {
-            val accentTitles by vm.accentTitles.collectAsState()
-            Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                Toggle("accent colour for titles", accentTitles) { vm.setAccentTitles(it) }
-            }
-        }
-
-        item { Section("playback") }
-        item {
-            val normalize by vm.normalize.collectAsState()
-            val m by vm.measure.collectAsState()
-            var measured by remember { mutableStateOf(0) }
-            LaunchedEffect(lib.version, m.running) { measured = vm.measuredCount() }
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                Toggle("normalize volume", normalize) { vm.setNormalize(it) }
-                MText(
-                    "Plays every song at a similar loudness, without changing your files: loud songs are turned " +
-                        "down to ${Normalization.TARGET_LUFS.toInt()} LUFS, the ReplayGain level. Songs are measured " +
-                        "as they come up, or all at once here.",
-                    MetroType.small, color = c.subtle, maxLines = 5,
-                )
-                VSpace(8)
-                MText(
-                    if (m.running) "${m.already + m.done} of ${m.already + m.total} songs measured..."
-                    else "$measured of ${lib.songs.size} songs measured",
-                    MetroType.normal, modifier = Modifier.testTag("measure:status"),
-                )
-                if (m.failed > 0) MText("${m.failed} songs couldn't be measured", MetroType.small, color = c.subtle)
-                if (m.running) {
-                    VSpace(8)
-                    ProgressDots()
-                }
-                VSpace(10)
-                if (m.running) MetroButton("stop measuring") { vm.stopMeasuring() }
-                else MetroButton("measure all songs", enabled = measured < lib.songs.size) { vm.measureCollection() }
-            }
-        }
-
-        item { Section("network") }
-        item {
-            val offline by vm.offline.collectAsState()
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                Toggle("network kill switch", offline) { vm.setOffline(it) }
-                MText(
-                    if (offline) "On: Tune makes no web requests at all. Finding info online, scanning and remote covers are off."
-                    else "Tune only goes online when you use finding info online. Turn this on to make sure it never does.",
-                    MetroType.small, color = c.subtle, maxLines = 3,
-                )
-            }
-        }
-
-        item { Section("finding info online") }
-        item {
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                MText(
-                    "Songs are identified by their sound with AcoustID and MusicBrainz, like Picard does. " +
-                        "You need a free AcoustID application API key.",
-                    MetroType.small, color = c.subtle, maxLines = 4,
-                )
-                VSpace(10)
-                MetroTextBox("acoustid api key", keyText, { keyText = it })
-                VSpace(10)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetroButton("save key", enabled = keyText.trim() != key) {
-                        vm.setAcoustIdKey(keyText)
-                        vm.toast("key saved")
-                    }
-                    MetroButton("get a key") {
-                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://acoustid.org/new-application")))
-                    }
-                }
-                if (key.isNotEmpty()) {
-                    VSpace(16)
-                    MText(
-                        "Scanning fingerprints and looks up every song once and saves the answers, " +
-                            "so finding info and consolidating albums don't ask again.",
-                        MetroType.small, color = c.subtle, maxLines = 4,
-                    )
-                    VSpace(8)
-                    var scanned by remember { mutableStateOf(0) }
-                    val scan by vm.scan.collectAsState()
-                    LaunchedEffect(lib.version, scan.running, scan.generation) { scanned = vm.scannedCount() }
-                    ScanControls(vm, scanned, lib.songs.size)
-                    VSpace(10)
-                    MetroButton("consolidate albums") { vm.navigate(Screen.Consolidate) }
-                }
-            }
-        }
-
-        item { Section("music folder") }
-        item { LibraryFolderSettings(vm) }
-
-        item { Section("organizing files") }
-        item {
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                Toggle("move files after editing info", organize) { vm.setAutoOrganize(it) }
-                MText(
-                    vm.organizeRoot?.let { "$it/<album artist>/<album>/<number>-<title>.<ext>" }
-                        ?: "Unavailable for this music folder: files stay where they are.",
-                    MetroType.small, color = c.subtle, maxLines = 2,
-                )
-                VSpace(12)
-                MetroButton("organize whole collection", enabled = lib.songs.isNotEmpty() && vm.organizeRoot != null) {
-                    actions.organize(lib.songs)
-                }
-            }
-        }
-
-        item { Section("collection") }
-        item {
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                val albumGrid by vm.albumGrid.collectAsState()
-                Toggle("show albums as a grid", albumGrid) { vm.setAlbumGrid(it) }
-                VSpace(8)
-                MText("${lib.artists.size} artists • ${lib.albums.size} albums • ${lib.songs.size} songs", MetroType.normal, color = c.subtle)
-                VSpace(10)
-                MetroButton("refresh collection") { vm.reload(); vm.toast("refreshing") }
-            }
-        }
-
-        item { Section("about") }
-        item {
-            val version = remember {
-                runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty()
-            }
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                MText("Tune $version", MetroType.normal)
-                VSpace(8)
-                MText(
-                    "Finding info online uses three free web services: AcoustID identifies recordings from audio " +
-                        "fingerprints, MusicBrainz provides song and album information, and the Cover Art Archive " +
-                        "provides album covers. Tune contacts them only when you use those features; otherwise it " +
-                        "makes no web requests. No data is collected.",
-                    MetroType.small, color = c.subtle, maxLines = 8,
-                )
-                VSpace(10)
-                MetroButton("open-source licences") { vm.navigate(Screen.Licenses) }
-                VSpace(10)
-                MetroButton("privacy policy") {
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Gabrielcarvfer/tune/blob/master/PRIVACY.md")))
+    val initial = remember { vm.takeSettingsPage()?.let { SETTINGS_PAGES.indexOf(it) }?.takeIf { it >= 0 } ?: 0 }
+    Box(Modifier.statusBarsPadding()) {
+        Pivot("settings", SETTINGS_PAGES, initial) { page ->
+            SettingsPage(SETTINGS_PAGES[page]) {
+                when (SETTINGS_PAGES[page]) {
+                    "playback" -> playbackSettings(vm)
+                    "collection" -> collectionSettings(vm, actions)
+                    "network" -> networkSettings(vm)
+                    "appearance" -> appearanceSettings(vm)
+                    else -> aboutSettings(vm)
                 }
             }
         }
     }
+}
+
+/** One settings page: a list tagged "settings:<page>" (tests scroll it). */
+@Composable
+private fun SettingsPage(name: String, content: LazyListScope.() -> Unit) {
+    LazyColumn(
+        Modifier.fillMaxSize().imePadding().testTag("settings:$name"),
+        contentPadding = PaddingValues(bottom = 64.dp),
+        content = content,
+    )
+}
+
+private fun LazyListScope.playbackSettings(vm: MainViewModel) {
+    item { Section("volume") }
+    item {
+        val c = Metro.colors
+        val lib by vm.library.collectAsState()
+        val normalize by vm.normalize.collectAsState()
+        val m by vm.measure.collectAsState()
+        var measured by remember { mutableStateOf(0) }
+        LaunchedEffect(lib.version, m.running) { measured = vm.measuredCount() }
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Toggle("normalize volume", normalize) { vm.setNormalize(it) }
+            Note(
+                "Plays every song at a similar loudness, without changing your files: loud songs are turned " +
+                    "down to ${Normalization.TARGET_LUFS.toInt()} LUFS, the ReplayGain level. Songs are measured " +
+                    "as they come up, or all at once here.",
+            )
+            VSpace(8)
+            MText(
+                if (m.running) "${m.already + m.done} of ${m.already + m.total} songs measured..."
+                else "$measured of ${lib.songs.size} songs measured",
+                MetroType.normal, modifier = Modifier.testTag("measure:status"),
+            )
+            if (m.failed > 0) MText("${m.failed} songs couldn't be measured", MetroType.small, color = c.subtle)
+            if (m.running) {
+                VSpace(8)
+                ProgressDots()
+            }
+            VSpace(10)
+            if (m.running) MetroButton("stop measuring") { vm.stopMeasuring() }
+            else MetroButton("measure all songs", enabled = measured < lib.songs.size) { vm.measureCollection() }
+        }
+    }
+}
+
+private fun LazyListScope.collectionSettings(vm: MainViewModel, actions: Actions) {
+    item { Section("music folder") }
+    item { LibraryFolderSettings(vm) }
+
+    item { Section("organizing files") }
+    item {
+        val lib by vm.library.collectAsState()
+        val organize by vm.autoOrganize.collectAsState()
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Toggle("move files after editing info", organize) { vm.setAutoOrganize(it) }
+            Note(
+                vm.organizeRoot?.let { "$it/<album artist>/<album>/<number>-<title>.<ext>" }
+                    ?: "Unavailable for this music folder: files stay where they are.",
+            )
+            VSpace(12)
+            MetroButton("organize whole collection", enabled = lib.songs.isNotEmpty() && vm.organizeRoot != null) {
+                actions.organize(lib.songs)
+            }
+        }
+    }
+
+    item { Section("identifying songs") }
+    item {
+        val lib by vm.library.collectAsState()
+        val key by vm.acoustIdKey.collectAsState()
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            if (key.isEmpty()) {
+                Note("Scanning and consolidating identify songs with AcoustID: add a free API key on the network page first.")
+                VSpace(10)
+                MetroButton("go to network") { vm.openSettings("network") }
+            } else {
+                Note(
+                    "Scanning fingerprints and looks up every song once and saves the answers, " +
+                        "so finding info and consolidating albums don't ask again.",
+                )
+                VSpace(8)
+                var scanned by remember { mutableStateOf(0) }
+                val scan by vm.scan.collectAsState()
+                LaunchedEffect(lib.version, scan.running, scan.generation) { scanned = vm.scannedCount() }
+                ScanControls(vm, scanned, lib.songs.size)
+                VSpace(10)
+                MetroButton("consolidate albums") { vm.navigate(Screen.Consolidate) }
+            }
+        }
+    }
+
+    item { Section("library") }
+    item {
+        val lib by vm.library.collectAsState()
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            MText("${lib.artists.size} artists • ${lib.albums.size} albums • ${lib.songs.size} songs", MetroType.normal, color = Metro.colors.subtle)
+            VSpace(10)
+            MetroButton("refresh collection") { vm.reload(); vm.toast("refreshing") }
+        }
+    }
+}
+
+private fun LazyListScope.networkSettings(vm: MainViewModel) {
+    item { Section("kill switch") }
+    item {
+        val offline by vm.offline.collectAsState()
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Toggle("network kill switch", offline) { vm.setOffline(it) }
+            Note(
+                if (offline) "On: Tune makes no web requests at all. Finding info online, scanning and remote covers are off."
+                else "Tune only goes online when you use finding info online. Turn this on to make sure it never does.",
+            )
+        }
+    }
+
+    item { Section("acoustid") }
+    item {
+        val ctx = LocalContext.current
+        val key by vm.acoustIdKey.collectAsState()
+        var keyText by remember(key) { mutableStateOf(key) }
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Note(
+                "Songs are identified by their sound with AcoustID and MusicBrainz, like Picard does. " +
+                    "You need a free AcoustID application API key.",
+            )
+            VSpace(10)
+            MetroTextBox("acoustid api key", keyText, { keyText = it })
+            VSpace(10)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetroButton("save key", enabled = keyText.trim() != key) {
+                    vm.setAcoustIdKey(keyText)
+                    vm.toast("key saved")
+                }
+                MetroButton("get a key") {
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://acoustid.org/new-application")))
+                }
+            }
+        }
+    }
+}
+
+private fun LazyListScope.appearanceSettings(vm: MainViewModel) {
+    item { Section("background") }
+    item {
+        val mode by vm.themeMode.collectAsState()
+        Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Choice("system", mode == ThemeMode.SYSTEM) { vm.setThemeMode(ThemeMode.SYSTEM) }
+            Choice("dark", mode == ThemeMode.DARK) { vm.setThemeMode(ThemeMode.DARK) }
+            Choice("light", mode == ThemeMode.LIGHT) { vm.setThemeMode(ThemeMode.LIGHT) }
+        }
+    }
+
+    item { Section("accent colour") }
+    items(Accents.chunked(4)) { row ->
+        val c = Metro.colors
+        val accent by vm.accent.collectAsState()
+        Row(Modifier.padding(horizontal = 24.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            row.forEach { (name, color) ->
+                Column(Modifier.weight(1f).metroClick { vm.setAccent(color) }) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .background(color)
+                            .border(if (color == accent) 3.dp else 0.dp, c.foreground),
+                    )
+                    MText(name, MetroType.small, color = if (color == accent) c.foreground else c.subtle)
+                }
+            }
+            repeat(4 - row.size) { Box(Modifier.weight(1f)) }
+        }
+    }
+    item {
+        val accentTitles by vm.accentTitles.collectAsState()
+        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+            Toggle("accent colour for titles", accentTitles) { vm.setAccentTitles(it) }
+        }
+    }
+
+    item { Section("albums") }
+    item {
+        val albumGrid by vm.albumGrid.collectAsState()
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Toggle("show albums as a grid", albumGrid) { vm.setAlbumGrid(it) }
+        }
+    }
+}
+
+private fun LazyListScope.aboutSettings(vm: MainViewModel) {
+    item { Section("tune") }
+    item {
+        val ctx = LocalContext.current
+        val version = remember {
+            runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty()
+        }
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            MText("Tune $version", MetroType.normal)
+            VSpace(8)
+            Note(
+                "Finding info online uses three free web services: AcoustID identifies recordings from audio " +
+                    "fingerprints, MusicBrainz provides song and album information, and the Cover Art Archive " +
+                    "provides album covers. Tune contacts them only when you use those features; otherwise it " +
+                    "makes no web requests. No data is collected.",
+            )
+            VSpace(10)
+            MetroButton("open-source licences") { vm.navigate(Screen.Licenses) }
+            VSpace(10)
+            MetroButton("privacy policy") {
+                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Gabrielcarvfer/tune/blob/master/PRIVACY.md")))
+            }
+        }
+    }
+}
+
+/** A setting's explanation: small and grey, below it. */
+@Composable
+private fun Note(text: String) {
+    MText(text, MetroType.small, color = Metro.colors.subtle, maxLines = 8)
 }
 
 @Composable

@@ -55,7 +55,7 @@ class ConsolidateTest : TuneTest() {
 
     private fun scan() {
         goHome()
-        tap("settings")
+        openSettings("collection")
         scrollTo(hasText("scan collection"))
         tap("scan collection")
         waitFor("scan finished", 60_000) { vm.scan.value.let { !it.running && it.already + it.done == 4 } }
@@ -135,7 +135,7 @@ class ConsolidateTest : TuneTest() {
     }
 
     private fun scan0() {
-        tap("settings")
+        openSettings("collection")
         scrollTo(hasText("scan collection"))
         tap("scan collection")
     }

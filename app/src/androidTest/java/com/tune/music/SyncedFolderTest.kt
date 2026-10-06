@@ -51,7 +51,7 @@ class SyncedFolderTest : TuneTest() {
         assumeFalse("needs All files access off", allFiles)
         onVm { setLibraryFolder(LibraryFolder.fromPath(synced.path, Organizer.primaryRoot)) }
         assertEquals(null, vm.organizeRoot)
-        tap("settings")
+        openSettings("collection")
         scrollTo(hasText("allow all files access"))
         text("allow all files access")
         scrollTo(hasText("organize whole collection"))
@@ -72,7 +72,7 @@ class SyncedFolderTest : TuneTest() {
         waitFor("in the library") { vm.library.value.songs.any { it.id == id } }
         assertEquals("TuneTestSynced", vm.organizeRoot)
 
-        tap("settings")
+        openSettings("collection")
         scrollTo(hasText("All files access: allowed"))
         scrollTo(hasText("organize whole collection"))
         tap("organize whole collection")

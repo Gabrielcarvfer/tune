@@ -44,7 +44,7 @@ and TagLib via JNI).
 - **Merging albums**: pick several albums and edit them as one album (album,
   album artist, year, renumbered tracks), or find the release that holds the
   most of their songs.
-- **Scan and consolidate**: settings → finding info online → **scan
+- **Scan and consolidate**: settings → collection → **scan
   collection** fingerprints and looks up every song once and saves the
   answers, so later lookups don't ask again. **Consolidate albums** then finds
   songs that are on one release but split across albums (say, an anniversary
@@ -67,7 +67,7 @@ and TagLib via JNI).
   folder. It happens on demand for a song, album, artist or the whole
   collection, or after saving info (settings switch, off unless you chose a
   music folder). Folders left empty are removed.
-- **Music folder**: settings → "music folder" limits the collection to one
+- **Music folder**: settings → collection → "music folder" limits the collection to one
   folder, and organized files stay inside it. Android only lets apps move audio
   within `Music/`, `Download/` and similar folders. For a folder elsewhere (for
   example a Resilio Sync or Syncthing folder), tap "allow all files access";
@@ -77,6 +77,10 @@ and TagLib via JNI).
 ## Using Tune
 
 The numbers in the screenshots match the steps under them.
+
+Settings are a pivot, like the collection: swipe between **playback**,
+**collection** (music folder, organizing, identifying songs), **network**
+(kill switch, AcoustID key), **appearance** and **about**, or tap a title.
 
 ### Choosing where your music is
 
@@ -91,7 +95,8 @@ folder, such as a folder synced with Resilio Sync or Syncthing:
 </p>
 
 1. On the music hub, tap **settings**.
-2. Under **music folder**, tap **choose folder**.
+2. Swipe to (or tap) the **collection** page; under **music folder**, tap
+   **choose folder**.
 3. Open your music folder in Android's picker and tap **Use this folder**.
 4. Tap **Allow**. Only songs in that folder and its subfolders are now in the
    collection, and organized files stay inside it.
@@ -119,7 +124,7 @@ you give it all files access:
 
 Changes are written into the music files themselves, so other players and
 devices see them too. With **move files after editing info** on (settings →
-organizing files; on by default once you choose a music folder), saved files
+collection → organizing files; on by default once you choose a music folder), saved files
 are also moved to `<album artist>/<album>/<NN>-<title>.<ext>` inside the music
 folder.
 
@@ -153,7 +158,7 @@ badly tagged files: titles, artists, album, year, track numbers and cover.
 
 First, once only, add a free AcoustID key:
 
-1. In settings → **finding info online**, tap **get a key**. Sign in on
+1. In settings → **network**, under **acoustid**, tap **get a key**. Sign in on
    acoustid.org and register an application (any name, such as "Tune"); it
    shows you an API key.
 2. Paste the key into **acoustid api key**.
@@ -222,7 +227,8 @@ most of them.
   <img src="docs/guide/consolidate-4.png" width="200" alt="Reviewing and applying a release">
 </p>
 
-1. In settings → **finding info online**, tap **scan collection**. It runs
+1. In settings → **collection**, under **identifying songs**, tap
+   **scan collection**. It runs
    within the services' rate limits, so a big collection takes a while; you
    can stop and continue later, already scanned songs are kept.
 2. Tap **consolidate albums**.
@@ -238,7 +244,7 @@ most of them.
    build downloads Chromaprint 1.5.1, TagLib 2.0.2 and utfcpp through CMake `FetchContent`
    (`app/src/main/cpp/CMakeLists.txt`).
 2. Get a free AcoustID API key at <https://acoustid.org/new-application> and
-   enter it in **settings → finding info online** (see
+   enter it in **settings → network** (see
    [Finding info online](#finding-info-online-acoustid)).
 
 ## Continuous integration

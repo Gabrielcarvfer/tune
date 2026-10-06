@@ -94,7 +94,7 @@ class NavigationTest : TuneTest() {
         openCollection("albums")
         tag("albums:list").assertExists()
         goHome()
-        tap("settings")
+        openSettings("appearance")
         scrollTo(hasText("show albums as a grid"))
         tap("show albums as a grid")
         waitFor("grid setting on") { vm.albumGrid.value }
@@ -159,7 +159,7 @@ class NavigationTest : TuneTest() {
     }
 
     @Test fun settingsSwitchesThemeAndAccent() {
-        tap("settings")
+        openSettings("appearance")
         assertEquals("follows the system by default", ThemeMode.SYSTEM, vm.themeMode.value)
         tap("light")
         waitFor("light theme") { vm.themeMode.value == ThemeMode.LIGHT }
@@ -208,5 +208,36 @@ class DefaultsTest : TuneTest() {
         assertTrue(vm.accentTitles.value)
         openCollection("albums")
         tag("albums:grid").assertExists()
+    }
+}
+
+/** Settings is a pivot: each page holds its own settings. */
+@RunWith(AndroidJUnit4::class)
+class SettingsLayoutTest : TuneTest() {
+    private val expected = mapOf(
+        "playback" to listOf("normalize volume", "measure all songs"),
+        "collection" to listOf("music folder", "choose folder", "move files after editing info", "identifying songs", "refresh collection"),
+        "network" to listOf("network kill switch", "acoustid api key", "get a key"),
+        "appearance" to listOf("background", "accent colour", "accent colour for titles", "show albums as a grid"),
+        "about" to listOf("open-source licences", "privacy policy"),
+    )
+
+    @Test fun eachPageHasItsSettings() {
+        expected.forEach { (page, items) ->
+            openSettings(page)
+            items.forEach { item ->
+                scrollTo(hasText(item))
+                text(item)
+            }
+        }
+    }
+
+    @Test fun withoutAKeyCollectionPointsToTheNetworkPage() {
+        openSettings("collection")
+        scrollTo(hasText("go to network"))
+        tap("go to network")
+        waitFor("network page") { screen == Screen.Settings && currentPivot() == "network" }
+        scrollTo(hasText("acoustid api key"))
+        text("acoustid api key")
     }
 }

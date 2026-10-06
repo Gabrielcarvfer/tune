@@ -187,8 +187,26 @@ abstract class TuneTest {
      * lists drop off-screen rows, e.g. when the soft keyboard opens).
      */
     protected fun scrollTo(matcher: SemanticsMatcher) {
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(matcher)
+        // In settings the first scrollable is the pivot; scroll the page's own list.
+        val list = if (screen == Screen.Settings) hasTestTag("settings:${currentPivot()}") else hasScrollAction()
+        compose.onAllNodes(list).onFirst().performScrollToNode(matcher)
         compose.waitForIdle()
+    }
+
+    /** The pivot page showing (e.g. "albums", or "network" in settings). */
+    protected fun currentPivot(): String =
+        compose.onNodeWithTag("pivot:current").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString("") { it.text }
+
+    /** Opens settings on [page] (one of its pivots: playback, collection, network, appearance, about). */
+    protected fun openSettings(page: String) {
+        goHome()
+        tap("settings")
+        waitFor("settings") { screen == Screen.Settings }
+        if (currentPivot() != page) {
+            tag("pivot:$page").performClick()
+            waitFor("settings page $page") { currentPivot() == page }
+        }
     }
 
     /** A finger-like horizontal swipe inside the node (not from its very edge). */

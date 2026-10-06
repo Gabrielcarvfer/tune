@@ -102,8 +102,8 @@ class MetadataTest : TuneTest() {
     }
 
     @Test fun turningOrganizingOffLeavesFilesWhereTheyAre() {
-        tap("settings")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("move files after editing info"))
+        openSettings("collection")
+        scrollTo(hasText("move files after editing info"))
         tap("move files after editing info")
         waitFor("organizing off") { !vm.autoOrganize.value }
         text("Off")
@@ -117,8 +117,8 @@ class MetadataTest : TuneTest() {
     }
 
     @Test fun organizeWholeCollectionMovesEverythingAndCleansUp() {
-        tap("settings")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("organize whole collection"))
+        openSettings("collection")
+        scrollTo(hasText("organize whole collection"))
         tap("organize whole collection")
         text("organize files?")
         tap("move")

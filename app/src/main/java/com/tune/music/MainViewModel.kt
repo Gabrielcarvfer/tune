@@ -225,6 +225,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private var settingsPage: String? = null
+
+    /** Opens settings on a page (as named on its pivot, e.g. "network"). */
+    fun openSettings(page: String) {
+        settingsPage = page
+        // Already in settings: open it afresh on that page.
+        if (backStack.lastOrNull() == Screen.Settings) back()
+        navigate(Screen.Settings)
+    }
+
+    /** The page settings should open on (the first, unless [openSettings] asked for another). */
+    fun takeSettingsPage(): String? = settingsPage.also { settingsPage = null }
+
     fun back(): Boolean {
         if (backStack.size <= 1) return false
         backStack.removeAt(backStack.lastIndex)

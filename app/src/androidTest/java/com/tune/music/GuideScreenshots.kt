@@ -127,12 +127,10 @@ class GuideScreenshots : TuneTest() {
         device.wait(Until.findObject(By.text(Pattern.compile(regex))), timeoutMs)
             ?: throw AssertionError("no \"$regex\" on screen")
 
-    /** Scrolls the settings list so the section titled [title] is at the top. */
-    private fun settingsAt(title: String) {
-        goHome()
-        tap("settings")
-        waitFor("settings") { screen == Screen.Settings }
-        val list = compose.onAllNodes(hasScrollAction()).onFirst()
+    /** Opens settings on [page] and scrolls it so the section titled [title] is at the top. */
+    private fun settingsAt(page: String, title: String) {
+        openSettings(page)
+        val list = tag("settings:$page")
         // Sections near the end can't reach the top: then the list stays at its end.
         for (i in 0..40) {
             if (runCatching { list.performScrollToIndex(i) }.isFailure) break
@@ -147,7 +145,7 @@ class GuideScreenshots : TuneTest() {
     @Test fun musicFolder() {
         shot("folder-1", mark(1, text("settings")))
 
-        settingsAt("music folder")
+        settingsAt("collection", "music folder")
         shot("folder-2", mark(2, text("choose folder"), side = "below"))
 
         // Android's own folder picker, then its permission question.
@@ -164,7 +162,7 @@ class GuideScreenshots : TuneTest() {
         // organize inside it.
         if (!Environment.isExternalStorageManager()) {
             onVm { setLibraryFolder(LibraryFolder(Organizer.primaryRoot, "Sync/Music")) }
-            settingsAt("music folder")
+            settingsAt("collection", "music folder")
             shot("folder-5", mark(5, text("allow all files access")))
             tap("allow all files access")
             val toggle = systemText("(?i)allow access to manage all files")
@@ -200,7 +198,7 @@ class GuideScreenshots : TuneTest() {
 
     @Test fun findingInfoOnline() {
         serveRelease()
-        settingsAt("finding info online")
+        settingsAt("network", "acoustid")
         type("field:acoustid api key", "your-api-key")
         shot("acoustid-1", mark(1, text("get a key")), mark(2, tag("field:acoustid api key")), mark(3, text("save key")))
         tap("save key")
@@ -278,7 +276,7 @@ class GuideScreenshots : TuneTest() {
                 Rel("anniv", "rg-anniv", GuideMedia.ANNIVERSARY, GuideMedia.COMPOSER, 2024, i + 1, 4, trackTitle = title),
             ))
         }
-        settingsAt("finding info online")
+        settingsAt("collection", "identifying songs")
         scrollTo(hasText("consolidate albums"))
         shot("consolidate-1", mark(1, text("scan collection")))
         tap("scan collection")

@@ -33,7 +33,7 @@ class LibraryFolderTest : TuneTest() {
         assertFalse(isShown("Delta Tune"))
 
         goHome()
-        tap("settings")
+        openSettings("collection")
         scrollTo(hasText("music folder"))
         tag("library:folder").assertTextEquals("Music/${TestMedia.IN_DIR}/${TestMedia.ALBUM}")
         tap("whole phone")
@@ -56,7 +56,7 @@ class LibraryFolderTest : TuneTest() {
         waitFor("library loaded") { titles().size == 4 }
         assertEquals("Music/${TestMedia.IN_DIR}", vm.organizeRoot)
 
-        tap("settings")
+        openSettings("collection")
         scrollTo(hasText("organize whole collection"))
         tap("organize whole collection")
         tap("move")
@@ -82,7 +82,7 @@ class LibraryFolderTest : TuneTest() {
         // Start in the album folder, then confirm it in Android's own picker.
         onVm { setLibraryFolder(albumFolder) }
         waitFor("narrowed") { "Delta Tune" !in titles() }
-        tap("settings")
+        openSettings("collection")
         scrollTo(hasText("choose folder"))
         tap("choose folder")
         val use = device.wait(Until.findObject(By.text(Pattern.compile("(?i)use this folder"))), 10_000)

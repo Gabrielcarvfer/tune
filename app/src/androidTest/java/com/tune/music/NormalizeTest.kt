@@ -24,7 +24,7 @@ class NormalizeTest : TuneTest() {
     )
 
     private fun measureAll() {
-        tap("settings")
+        openSettings("playback")
         scrollTo(hasText("measure all songs"))
         tap("measure all songs")
         waitFor("measured", 60_000) { vm.measure.value.let { !it.running && it.already + it.done == 2 } }
@@ -68,7 +68,7 @@ class NormalizeTest : TuneTest() {
         playFromSongs("Loud Song")
         waitFor("turned down") { volume < 0.9f }
         goHome()
-        tap("settings")
+        openSettings("playback")
         scrollTo(hasText("normalize volume"))
         tap("normalize volume")
         waitFor("setting off") { !vm.normalize.value }
@@ -93,7 +93,7 @@ class StopMeasuringTest : TuneTest() {
     override val songs = (1..8).map { TestMedia.Spec("Long Song %02d".format(it), TestMedia.BAND, "Tune Test Long", it, 40, 200.0 + it * 23) }
 
     @Test fun stopStopsTheMeasuring() {
-        tap("settings")
+        openSettings("playback")
         scrollTo(hasText("measure all songs"))
         tap("measure all songs")
         waitFor("measuring") { vm.measure.value.running }

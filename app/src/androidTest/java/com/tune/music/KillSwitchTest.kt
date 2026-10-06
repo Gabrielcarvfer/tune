@@ -46,7 +46,7 @@ class KillSwitchTest : TuneTest() {
     }
 
     @Test fun scanningIsRefused() {
-        tap("settings")
+        openSettings("collection")
         scrollTo(hasText("scan collection"))
         tap("scan collection")
         text("web requests are turned off")
@@ -55,7 +55,7 @@ class KillSwitchTest : TuneTest() {
     }
 
     @Test fun turningItOffAllowsRequestsAgain() {
-        tap("settings")
+        openSettings("network")
         scrollTo(hasText("network kill switch"))
         text("On: Tune makes no web requests at all", substring = true)
         tap("network kill switch")
@@ -68,7 +68,7 @@ class KillSwitchTest : TuneTest() {
     }
 
     @Test fun aboutNamesTheWebServices() {
-        tap("settings")
+        openSettings("about")
         scrollTo(hasText("privacy policy"))
         text("AcoustID identifies recordings from audio fingerprints", substring = true)
         text("Cover Art Archive", substring = true)

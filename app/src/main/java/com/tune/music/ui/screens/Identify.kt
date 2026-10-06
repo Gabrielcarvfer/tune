@@ -179,7 +179,7 @@ private fun NameSearch(
         LazyColumn(Modifier.fillMaxSize().imePadding(), state = list, contentPadding = PaddingValues(bottom = 48.dp)) {
             if (noKey) item {
                 EmptyNote("Identifying music by its sound uses AcoustID. Get a free API key at acoustid.org/new-application and enter it in settings.")
-                MetroButton("open settings", Modifier.padding(horizontal = 24.dp)) { vm.navigate(Screen.Settings) }
+                MetroButton("open settings", Modifier.padding(horizontal = 24.dp)) { vm.openSettings("network") }
                 VSpace(16)
                 MText("Or search MusicBrainz by name:", MetroType.normal, color = Metro.colors.subtle, modifier = Modifier.padding(horizontal = 24.dp))
                 VSpace(8)

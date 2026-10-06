@@ -8,8 +8,18 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.tan
 
-/** A song's integrated loudness (LUFS, -infinity for silence) and sample peak (0..1 of full scale). */
-data class Loudness(val lufs: Double, val peak: Double)
+/**
+ * A song's integrated loudness (LUFS, -infinity for silence), sample peak
+ * (0..1 of full scale) and where its audible part ends ([endMs]: after this
+ * it stays [TAIL_LU] below its loudness, e.g. a silent or fading tail; null
+ * when not measured).
+ */
+data class Loudness(val lufs: Double, val peak: Double, val endMs: Long? = null) {
+    companion object {
+        /** How far below a song's loudness its tail counts as over (LU). */
+        const val TAIL_LU = 30.0
+    }
+}
 
 /**
  * Integrated loudness after ITU-R BS.1770-4 / EBU R128, the measure ReplayGain
@@ -27,6 +37,7 @@ class LoudnessMeter(sampleRate: Int, private val channels: Int) {
         if (channels == 6) doubleArrayOf(1.0, 1.0, 1.0, 0.0, 1.41, 1.41)[ch] else 1.0
     }
     private val subBlock = max(1, sampleRate / 10) // 100 ms: blocks are 4 of these
+    private val subBlockMs = subBlock * 1000L / sampleRate
     private val power = ArrayList<Double>()         // weighted mean square per 100 ms
     private var acc = 0.0
     private var accFrames = 0
@@ -60,7 +71,10 @@ class LoudnessMeter(sampleRate: Int, private val channels: Int) {
             val gated = aboveAbsolute.filter { loud(it) > relative }
             loud(gated.average())
         }
-        return Loudness(lufs, peak / 32768.0)
+        // The end of the last 400 ms block still within TAIL_LU of the song's loudness.
+        val last = if (lufs.isFinite()) blocks.indexOfLast { it > 0 && loud(it) > lufs - Loudness.TAIL_LU } else -1
+        val endMs = if (last < 0) 0L else (last + 4) * subBlockMs
+        return Loudness(lufs, peak / 32768.0, endMs)
     }
 
     private fun filter(st: DoubleArray, x: Double): Double {

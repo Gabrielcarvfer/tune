@@ -108,3 +108,54 @@ class StopMeasuringTest : TuneTest() {
         text("measure all songs")
     }
 }
+
+/** Moving on when a song's sound has ended, instead of playing out its silent ending. */
+@RunWith(AndroidJUnit4::class)
+class SkipQuietEndingsTest : TuneTest() {
+    override val songs = listOf(
+        // 5 s of melody, then 10 s of silence.
+        TestMedia.Spec("Fading Song", TestMedia.BAND, "Tune Test Endings", 1, 15, 440.0, silentEnd = 10),
+        TestMedia.Spec("Next Song", TestMedia.BAND, "Tune Test Endings", 2, 6, 523.25),
+    )
+
+    private fun measureAll() {
+        openSettings("playback")
+        scrollTo(hasText("measure all songs"))
+        tap("measure all songs")
+        waitFor("measured", 60_000) { vm.measure.value.let { !it.running && it.already + it.done == 2 } }
+        assertEquals(5_000.0, vm.loudnessOf(song("Fading Song"))!!.endMs!!.toDouble(), 500.0)
+    }
+
+    private fun playFirst() {
+        openCollection("songs")
+        tap("Fading Song")
+        waitFor("playing") { player.isPlaying && player.currentId == song("Fading Song").id }
+    }
+
+    @Test fun theSilentEndingIsSkipped() {
+        measureAll()
+        val start = android.os.SystemClock.uptimeMillis()
+        playFirst()
+        waitFor("next song", 12_000) { player.currentId == song("Next Song").id }
+        val took = android.os.SystemClock.uptimeMillis() - start
+        assertTrue("moved on after the sound, not the silence ($took ms)", took < 11_000)
+    }
+
+    @Test fun offPlaysTheWholeSong() {
+        onVm { setSkipTails(false) }
+        measureAll()
+        playFirst()
+        Thread.sleep(9_000)
+        assertEquals("still in its silent ending", song("Fading Song").id, player.currentId)
+        waitFor("next song after the end", 15_000) { player.currentId == song("Next Song").id }
+    }
+
+    @Test fun repeatOneStartsTheSongAgain() {
+        measureAll()
+        playFirst()
+        onVm { player.cycleRepeat(); player.cycleRepeat() } // off -> all -> one
+        waitFor("repeat one") { player.repeat == com.music.tune.playback.RepeatMode.ONE }
+        waitFor("past its sound", 10_000) { player.positionMs > 4_000 }
+        waitFor("back at its start", 8_000) { player.positionMs < 2_000 && player.currentId == song("Fading Song").id }
+    }
+}

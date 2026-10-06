@@ -26,7 +26,8 @@ class LoudnessStore(private val file: File) {
             for (key in json.keys()) {
                 val e = json.getJSONObject(key)
                 val lufs = if (e.isNull("l")) Double.NEGATIVE_INFINITY else e.getDouble("l")
-                map[key.toLong()] = Entry(e.getLong("d"), Loudness(lufs, e.getDouble("p")))
+                val end = if (e.has("e")) e.getLong("e") else null
+                map[key.toLong()] = Entry(e.getLong("d"), Loudness(lufs, e.getDouble("p"), end))
             }
         }
         entries = map
@@ -36,9 +37,13 @@ class LoudnessStore(private val file: File) {
     @Synchronized
     operator fun get(id: Long): Loudness? = all()[id]?.loudness
 
-    /** The loudness saved for [song], if it's still for this recording. */
+    /**
+     * The loudness saved for [song], if it's still for this recording and
+     * complete (older entries lack the end of the audible part: measured again).
+     */
     @Synchronized
-    fun get(song: Song): Loudness? = all()[song.id]?.takeIf { it.durationMs == song.durationMs }?.loudness
+    fun get(song: Song): Loudness? =
+        all()[song.id]?.takeIf { it.durationMs == song.durationMs && it.loudness.endMs != null }?.loudness
 
     @Synchronized
     fun put(id: Long, durationMs: Long, loudness: Loudness) {
@@ -61,7 +66,8 @@ class LoudnessStore(private val file: File) {
             json.put(id.toString(), JSONObject()
                 .put("d", e.durationMs)
                 .put("l", if (e.loudness.lufs.isFinite()) e.loudness.lufs else JSONObject.NULL)
-                .put("p", e.loudness.peak))
+                .put("p", e.loudness.peak)
+                .apply { e.loudness.endMs?.let { put("e", it) } })
         }
         file.parentFile?.mkdirs()
         val tmp = File(file.path + ".tmp")

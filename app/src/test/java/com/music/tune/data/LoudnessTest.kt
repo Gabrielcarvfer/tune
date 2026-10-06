@@ -64,6 +64,21 @@ class LoudnessMeterTest {
         assertEquals(-23.0, measure(-23.0, 10, then = -43.0 to 10).lufs, 0.1)
     }
 
+    @Test fun theAudiblePartEndsWhereTheSoundStops() {
+        // 10 s of tone, then 10 s of silence.
+        assertEquals(10_000.0, measure(-23.0, 10, silence = 10).endMs!!.toDouble(), 400.0)
+    }
+
+    @Test fun aTailFarBelowTheSongIsCut() {
+        // A tail 35 dB below the song: past the 30 LU limit.
+        assertEquals(10_000.0, measure(-20.0, 10, then = -55.0 to 10).endMs!!.toDouble(), 400.0)
+    }
+
+    @Test fun aQuieterButAudibleTailIsKept() {
+        // 20 dB below: still part of the song.
+        assertEquals(20_000.0, measure(-20.0, 10, then = -40.0 to 10).endMs!!.toDouble(), 400.0)
+    }
+
     @Test fun silenceAloneHasNoLoudness() {
         val m = LoudnessMeter(48_000, 2)
         m.feed(ShortArray(96_000 * 5), 96_000 * 5)
@@ -98,8 +113,8 @@ class LoudnessStoreTest {
     @Test fun savesAndReadsBack() {
         val file = java.io.File(tmp.root, "loudness.json")
         LoudnessStore(file).apply {
-            put(song(1, durationMs = 200_000), Loudness(-9.5, 0.98))
-            put(song(2), Loudness(Double.NEGATIVE_INFINITY, 0.0))
+            put(song(1, durationMs = 200_000), Loudness(-9.5, 0.98, 190_000))
+            put(song(2), Loudness(Double.NEGATIVE_INFINITY, 0.0, 0))
             flush()
         }
         val again = LoudnessStore(file)
@@ -109,9 +124,23 @@ class LoudnessStoreTest {
         assertEquals(2, again.count(listOf(song(1, durationMs = 200_000), song(2), song(3))))
     }
 
+    @Test fun keepsTheAudibleEnd() {
+        val file = java.io.File(tmp.root, "e.json")
+        LoudnessStore(file).apply { put(song(1), Loudness(-9.5, 0.98, 171_300)); flush() }
+        assertEquals(171_300L, LoudnessStore(file).get(song(1))!!.endMs)
+    }
+
+    @Test fun olderEntriesWithoutTheEndAreMeasuredAgain() {
+        val file = java.io.File(tmp.root, "old.json")
+        file.writeText("""{"1":{"d":180000,"l":-9.5,"p":0.98}}""")
+        val store = LoudnessStore(file)
+        assertNull(store.get(song(1)))           // counts as not measured
+        assertEquals(-9.5, store[1L]!!.lufs, 1e-9) // the player can still use the level
+    }
+
     @Test fun aDifferentLengthMeansADifferentRecording() {
         val store = LoudnessStore(java.io.File(tmp.root, "l.json"))
-        store.put(song(1, durationMs = 200_000), Loudness(-9.5, 0.98))
+        store.put(song(1, durationMs = 200_000), Loudness(-9.5, 0.98, 190_000))
         assertNull(store.get(song(1, durationMs = 180_000)))
     }
 

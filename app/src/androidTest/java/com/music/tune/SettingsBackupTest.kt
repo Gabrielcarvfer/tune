@@ -33,7 +33,7 @@ class SettingsBackupTest : TuneTest() {
             playlists.create("Road trip", listOf(song("Alpha Song").id, song("Beta Song").id))
             matchCache.put(song("Alpha Song"), "AQAAfp", JSONObject("""{"status":"ok","results":[]}"""))
         }
-        (ctx.applicationContext as TuneApp).loudness.put(song("Beta Song"), Loudness(-9.5, 0.98))
+        (ctx.applicationContext as TuneApp).loudness.put(song("Beta Song"), Loudness(-9.5, 0.98, 6_000))
     }
 
     private fun wipe() {

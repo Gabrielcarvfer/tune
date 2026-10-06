@@ -272,6 +272,11 @@ class GuideScreenshots : TuneTest() {
         waitFor("measured", 120_000) { vm.measure.value.let { !it.running && it.already + it.done == vm.library.value.songs.size } }
     }
 
+    @Test fun skippingQuietEndings() {
+        settingsAt("playback", "transitions")
+        shot("transitions-1", mark(1, text("skip quiet song endings")))
+    }
+
     @Test fun backingUpSettings() {
         settingsAt("about", "backup")
         shot("backup-1", mark(1, text("export settings")), mark(2, text("import settings")))

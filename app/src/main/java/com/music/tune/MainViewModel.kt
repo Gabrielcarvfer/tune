@@ -577,6 +577,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putBoolean(VolumeNormalizer.PREF, on).apply()
     }
 
+    private val _skipTails = MutableStateFlow(prefs.getBoolean(VolumeNormalizer.PREF_SKIP_TAILS, true))
+    /** Move on when a song's audible part ends, skipping its quiet ending; the player reads the same setting. */
+    val skipTails: StateFlow<Boolean> = _skipTails.asStateFlow()
+
+    fun setSkipTails(on: Boolean) {
+        _skipTails.value = on
+        prefs.edit().putBoolean(VolumeNormalizer.PREF_SKIP_TAILS, on).apply()
+    }
+
     data class MeasureState(val running: Boolean = false, val done: Int = 0, val total: Int = 0, val already: Int = 0, val failed: Int = 0)
 
     private val _measure = MutableStateFlow(MeasureState())
@@ -681,6 +690,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _accentTitles.value = prefs.getBoolean("accentTitles", true)
         _albumGrid.value = prefs.getBoolean("albumGrid", true)
         _normalize.value = prefs.getBoolean(VolumeNormalizer.PREF, true)
+        _skipTails.value = prefs.getBoolean(VolumeNormalizer.PREF_SKIP_TAILS, true)
         _history.value = readHistory()
         _libraryFolder.value = prefs.getString("libraryFolder", null)?.let { LibraryFolder.fromPath(it, Organizer.primaryRoot) }
         _scan.value = ScanState(generation = _scan.value.generation + 1)

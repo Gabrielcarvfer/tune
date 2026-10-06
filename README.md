@@ -27,6 +27,12 @@ and TagLib via JNI).
   like ReplayGain 2), as it comes up to play or all at once (settings →
   playback → measure all songs). When a song starts, the player turns loud
   songs down to -18 LUFS; quiet ones play as they are. It can be switched off.
+- **Skipping quiet endings**: while measuring loudness, Tune also notes where
+  each song's sound ends for good (30 dB below the song's own level, so a long
+  fade-out plays almost to its end and only an inaudible or silent tail is
+  cut). When playback gets there it moves straight to the next song (settings
+  → playback → transitions, on by default). No audio processing is involved:
+  the player just skips ahead.
 - **Settings backup**: export every setting, playlists, history, measured
   loudness and saved scans to one JSON file, and import it in another install.
 - **Library management**: playlists (create, rename, reorder, delete), deleting
@@ -251,6 +257,28 @@ songs down to a common level while playing. Your files aren't changed.
 1. Settings → **playback**: **normalize volume** is on by default.
 2. Songs are measured as they come up to play; **measure all songs** does the
    whole collection now, in the background (you can stop and continue later).
+
+### Skipping quiet endings
+
+Some songs end with a long fade or several seconds of near-silence. Tune can
+move on to the next song as soon as the sound is gone, so you don't sit through
+the quiet.
+
+<p>
+  <img src="docs/guide/transitions-1.png" width="200" alt="Skip quiet song endings on the playback page">
+</p>
+
+1. Settings → **playback** → **transitions**: **skip quiet song endings** is on
+   by default.
+
+The end of each song is found while its loudness is measured (above), so a song
+is only cut once it has been measured: **measure all songs** gets every song
+ready at once. How much is cut depends on the song: a fade-out still plays
+almost to its end, and only the part that's practically inaudible (30 dB below
+the song's own level) is skipped. Nothing is cut when that's under a second.
+With **repeat one** the song starts again instead, and the last song in the
+list plays out. The audio itself is never processed: the player just skips
+ahead.
 
 ### Backing up and moving your settings
 

@@ -72,7 +72,10 @@ fun SettingsScreen(vm: MainViewModel, actions: Actions) {
         Pivot("settings", SETTINGS_PAGES, initial) { page ->
             SettingsPage(SETTINGS_PAGES[page]) {
                 when (SETTINGS_PAGES[page]) {
-                    "playback" -> playbackSettings(vm)
+                    "playback" -> {
+                        playbackSettings(vm)
+                        transitionSettings(vm)
+                    }
                     "collection" -> collectionSettings(vm, actions)
                     "network" -> networkSettings(vm)
                     "appearance" -> appearanceSettings(vm)
@@ -123,6 +126,21 @@ private fun LazyListScope.playbackSettings(vm: MainViewModel) {
             VSpace(10)
             if (m.running) MetroButton("stop measuring") { vm.stopMeasuring() }
             else MetroButton("measure all songs", enabled = measured < lib.songs.size) { vm.measureCollection() }
+        }
+    }
+}
+
+private fun LazyListScope.transitionSettings(vm: MainViewModel) {
+    item { Section("transitions") }
+    item {
+        val skipTails by vm.skipTails.collectAsState()
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Toggle("skip quiet song endings", skipTails) { vm.setSkipTails(it) }
+            Note(
+                "Moves on to the next song once a song's sound has faded out for good " +
+                    "(${com.music.tune.data.Loudness.TAIL_LU.toInt()} dB below its own level), " +
+                    "instead of playing out a silent or near-silent ending. Found while measuring loudness.",
+            )
         }
     }
 }

@@ -19,7 +19,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.tune.data.AcoustId
 import com.music.tune.data.Album
+import com.music.tune.data.Chromaprint
 import com.music.tune.data.Consolidator
+import com.music.tune.data.Duplicates
 import com.music.tune.data.SettingsBackup
 import com.music.tune.data.CoverImage
 import com.music.tune.data.Library
@@ -33,6 +35,7 @@ import com.music.tune.data.MediaRepository
 import com.music.tune.data.MusicBrainz
 import com.music.tune.data.Net
 import com.music.tune.data.PlaylistStore
+import com.music.tune.data.pipeline
 import com.music.tune.data.Song
 import com.music.tune.data.TagEdit
 import com.music.tune.data.TagEditor
@@ -41,6 +44,7 @@ import com.music.tune.playback.PlayerConnection
 import com.music.tune.playback.VolumeNormalizer
 import com.music.tune.ui.theme.DefaultAccent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import org.json.JSONObject
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
@@ -77,6 +81,8 @@ sealed interface Screen {
     data class EditAsAlbum(val songIds: List<Long>) : Screen
     /** Scanning the collection and merging albums split across releases. */
     data object Consolidate : Screen
+    /** Songs saved more than once: listen, tick, delete. */
+    data object Duplicates : Screen
     /** The open-source licences page, and one component's licence text. */
     data object Licenses : Screen
     data class LicenseText(val name: String) : Screen
@@ -701,6 +707,75 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun consolidationProposals(): List<Consolidator.Proposal> = withContext(Dispatchers.IO) {
         val lib = _library.value
         Consolidator.propose(lib.songs, libraryMatches(), { it.albumId }, { lib.album(it)?.title ?: "?" })
+    }
+
+    // --- duplicates -------------------------------------------------------------
+
+    /**
+     * Finding copies: first the songs without a saved fingerprint are
+     * fingerprinted ([done] of [total]), then all are compared. [groups] is
+     * null until a search has finished.
+     */
+    data class DuplicatesState(
+        val running: Boolean = false,
+        val done: Int = 0,
+        val total: Int = 0,
+        val groups: List<List<Song>>? = null,
+    )
+
+    private val _duplicates = MutableStateFlow(DuplicatesState())
+    val duplicates: StateFlow<DuplicatesState> = _duplicates.asStateFlow()
+    private var duplicatesJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Looks for copies across the collection. Fingerprints are computed on the
+     * phone (no web requests) and saved like a scan's, so the next search and
+     * scan reuse them. Stopping compares what is fingerprinted so far.
+     */
+    fun findDuplicates() {
+        if (duplicatesJob?.isActive == true) return
+        duplicatesJob = viewModelScope.launch {
+            val songs = _library.value.songs
+            val todo = withContext(Dispatchers.IO) { songs.filter { matchCache.get(it)?.fingerprint == null } }
+            _duplicates.value = DuplicatesState(running = true, total = todo.size)
+            var done = 0
+            try {
+                pipeline(
+                    todo, AcoustId.PARALLEL_FINGERPRINTS, Dispatchers.Default,
+                    prepare = { song -> Chromaprint.fingerprint(getApplication(), song.uri) },
+                    finish = { song, result ->
+                        result.onSuccess { fp -> withContext(Dispatchers.IO) { matchCache.put(song, fp, null) } }
+                            .onFailure { android.util.Log.w(TAG, "can't fingerprint ${song.path}", it) }
+                        _duplicates.value = _duplicates.value.copy(done = ++done)
+                    },
+                )
+            } finally {
+                // Also when stopped: compare what there is.
+                withContext(NonCancellable) {
+                    val groups = withContext(Dispatchers.Default) { duplicateGroups(songs) }
+                    _duplicates.value = _duplicates.value.copy(running = false, groups = groups)
+                }
+            }
+        }
+    }
+
+    fun stopDuplicates() {
+        duplicatesJob?.cancel()
+    }
+
+    /** Drops [deleted] songs from the groups found, and groups left with one song. */
+    fun forgetDuplicates(deleted: Set<Long>) {
+        val groups = _duplicates.value.groups ?: return
+        _duplicates.value = _duplicates.value.copy(
+            groups = groups.map { g -> g.filter { it.id !in deleted } }.filter { it.size > 1 },
+        )
+    }
+
+    private fun duplicateGroups(songs: List<Song>): List<List<Song>> {
+        val fingerprints = songs.mapNotNull { s ->
+            matchCache.get(s)?.fingerprint?.let { Chromaprint.decode(it) }?.let { s.id to it }
+        }.toMap()
+        return Duplicates.find(songs, fingerprints)
     }
 
     // --- MusicBrainz search by name -----------------------------------------

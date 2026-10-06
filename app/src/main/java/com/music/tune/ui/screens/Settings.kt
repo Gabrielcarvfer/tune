@@ -206,6 +206,9 @@ private fun LazyListScope.collectionSettings(vm: MainViewModel, actions: Actions
             MText("${lib.artists.size} artists • ${lib.albums.size} albums • ${lib.songs.size} songs", MetroType.normal, color = Metro.colors.subtle)
             VSpace(10)
             MetroButton("refresh collection") { vm.reload(); vm.toast("refreshing") }
+            VSpace(10)
+            MetroButton("find duplicates") { vm.navigate(Screen.Duplicates) }
+            Note("Finds songs saved more than once by their sound, to listen to and delete the extra copies. Works offline.")
         }
     }
 }

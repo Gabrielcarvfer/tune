@@ -3,7 +3,7 @@ package com.music.tune.data
 import android.content.Context
 import android.net.Uri
 
-/** Fingerprints the start of a song with Chromaprint (native), decoded by [AudioDecoder]. */
+/** Fingerprints the start of a song with Chromaprint (native), decoded by [AudioDecoder], and decodes saved fingerprints. */
 object Chromaprint {
     init {
         System.loadLibrary("tune_native")
@@ -16,6 +16,10 @@ object Chromaprint {
     @JvmStatic private external fun nativeFeed(handle: Long, samples: ShortArray, count: Int): Boolean
     @JvmStatic private external fun nativeFinish(handle: Long): String?
     @JvmStatic private external fun nativeFree(handle: Long)
+    @JvmStatic private external fun nativeDecode(encoded: String): IntArray?
+
+    /** The raw fingerprint (one 32-bit item per ~0.12 s of audio) behind a compressed one, or null if it isn't one. */
+    fun decode(encoded: String): IntArray? = nativeDecode(encoded)
 
     suspend fun fingerprint(context: Context, uri: Uri): String {
         var handle = 0L

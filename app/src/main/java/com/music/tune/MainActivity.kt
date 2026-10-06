@@ -73,6 +73,7 @@ import com.music.tune.ui.components.metroClick
 import com.music.tune.ui.components.topDivider
 import com.music.tune.ui.screens.Actions
 import com.music.tune.ui.screens.ConsolidateScreen
+import com.music.tune.ui.screens.DuplicatesScreen
 import com.music.tune.ui.screens.LicenseTextScreen
 import com.music.tune.ui.screens.LicensesScreen
 import com.music.tune.ui.screens.EditAsAlbumScreen
@@ -268,6 +269,7 @@ private fun ScreenContent(s: Screen, vm: MainViewModel, actions: Actions) {
         is Screen.MergeAlbums -> MergeAlbumsScreen(vm, s.firstAlbumId)
         is Screen.EditAsAlbum -> EditAsAlbumScreen(vm, actions, s.songIds)
         Screen.Consolidate -> ConsolidateScreen(vm)
+        Screen.Duplicates -> DuplicatesScreen(vm, actions)
         Screen.Licenses -> LicensesScreen(vm)
         is Screen.LicenseText -> LicenseTextScreen(s.name)
         Screen.Search -> SearchScreen(vm, actions)

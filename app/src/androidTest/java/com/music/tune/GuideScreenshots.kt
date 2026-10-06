@@ -9,6 +9,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
@@ -275,6 +276,23 @@ class GuideScreenshots : TuneTest() {
     @Test fun skippingQuietEndings() {
         settingsAt("playback", "transitions")
         shot("transitions-1", mark(1, text("skip quiet song endings")))
+    }
+
+    @Test fun findingDuplicates() {
+        settingsAt("collection", "library")
+        shot("duplicates-1", mark(1, text("find duplicates")))
+        tap("find duplicates")
+        waitFor("search done", 120_000) { vm.duplicates.value.let { !it.running && it.groups != null } }
+        val copies = vm.library.value.songs.filter { it.title == GuideMedia.DUPLICATE }
+        val deluxe = copies.first { it.album == GuideMedia.DUPLICATE_ALBUM }
+        val original = copies.first { it.album != GuideMedia.DUPLICATE_ALBUM }
+        tag("dup:tick:${deluxe.id}").performClick()
+        shot(
+            "duplicates-2",
+            mark(2, tag("dup:listen:${original.id}")),
+            mark(3, tag("dup:tick:${deluxe.id}")),
+            mark(4, compose.onNodeWithContentDescription("delete")),
+        )
     }
 
     @Test fun backingUpSettings() {

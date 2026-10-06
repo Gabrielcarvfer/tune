@@ -37,6 +37,11 @@ and TagLib via JNI).
   loudness and saved scans to one JSON file, and import it in another install.
 - **Library management**: playlists (create, rename, reorder, delete), deleting
   songs and albums, and search.
+- **Finding duplicates**: songs saved more than once are found by their sound
+  (Chromaprint fingerprints, compared on the phone), so copies in another
+  format or with other tags count too; without a fingerprint, by title, artist
+  and length. Listen to each copy, tick the extra ones and delete them. No web
+  requests are involved.
 - **Metadata editing**: tags are written into the files themselves with
   TagLib (title, artist, album, album artist, genre, year, track, disc,
   cover art). An album editor changes every track at once and can set a new
@@ -245,6 +250,26 @@ most of them.
 
 **forget scan** deletes the saved fingerprints and answers.
 
+### Finding duplicates
+
+Songs you have more than once (the same recording in two albums, or as an MP3
+and an M4A) are found by how they sound, whatever their tags say. Everything
+happens on the phone, without web requests.
+
+<p>
+  <img src="docs/guide/duplicates-1.png" width="200" alt="Find duplicates in settings">
+  <img src="docs/guide/duplicates-2.png" width="200" alt="Copies of a song, one ticked for deleting">
+</p>
+
+1. In settings → **collection**, under **library**, tap **find duplicates**.
+   Songs not fingerprinted yet are fingerprinted first (saved like a scan's,
+   so it's quicker next time); you can stop, and what's done so far is
+   compared.
+2. Each song with copies is listed with every copy's folder, format and
+   length. Tap ▶ to listen to a copy (the queue isn't touched).
+3. Tick the copies to delete. If every copy of a song is ticked, Tune warns.
+4. Tap delete (the bin), confirm, and allow it in the system's dialog.
+
 ### Playing at an even volume
 
 So that one song isn't suddenly much louder than the last, Tune turns loud
@@ -329,8 +354,8 @@ Gradle and the emulator start many threads.
 
 - **Unit tests** (JVM, fast): `./gradlew testDebugUnitTest`. These cover tag
   helpers, file-organizer paths, AcoustID response parsing and Picard-style
-  release ranking, MusicBrainz search and track matching, consolidation, the
-  saved scans, the rate limiter and kill switch, the fingerprinting pipeline,
+  release ranking, MusicBrainz search and track matching, consolidation,
+  duplicate matching, the saved scans, the rate limiter and kill switch, the fingerprinting pipeline,
   the loudness meter (against the EBU reference tone), settings backup and
   the licence files.
 - **Functional tests** (on a device or emulator):
@@ -346,6 +371,7 @@ Gradle and the emulator start many threads.
     editing, organizing (including empty-folder cleanup), deleting through
     the system consent dialog, the identify flow with release and cover
     picking, search by name, merging albums, scanning and consolidating,
+    finding and deleting duplicates,
     the network kill switch, volume normalization, going back to where you
     were, the settings pages, and exporting and importing settings.
 

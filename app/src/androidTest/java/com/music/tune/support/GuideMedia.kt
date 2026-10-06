@@ -30,17 +30,23 @@ object GuideMedia {
         "Breach Point" to "Ironclad Breach", "Aftershock" to "Ironclad Aftershock",
     )
 
+    // One song saved twice.
+    const val DUPLICATE = "Long Way North"
+    const val DUPLICATE_ALBUM = "Coastline (Deluxe)"
+
     val SONGS: List<TestMedia.Spec> by lazy {
-        fun album(artist: String, album: String, year: String, genre: String, art: ByteArray?, vararg titles: String) =
+        fun album(artist: String, album: String, year: String, genre: String, art: ByteArray?, vararg titles: String, seconds: Int = 6) =
             titles.mapIndexed { i, t ->
-                TestMedia.Spec(t, artist, album, i + 1, 6, 220.0 + 37.0 * (t.hashCode() and 0xff) / 16,
+                TestMedia.Spec(t, artist, album, i + 1, seconds, 220.0 + 37.0 * (t.hashCode() and 0xff) / 16,
                     genre = genre, year = year, art = art)
             }
         album("Mira Vale", "Slow Orbit", "2019", "Dream Pop", cover(0xFF1B2A6B, 0xFF7A3FA0, 0), "Gravity Well", "Low Tide Hymn", "Satellite Hearts") +
             album("Copper Lines", "Night Ferry", "2016", "Indie", cover(0xFF0E5E6F, 0xFF10203A, 1), "Harbour Lights", "Last Crossing") +
             album("The Quiet Hours", "Amber Rooms", "2021", "Folk", cover(0xFFF2A541, 0xFFC0392B, 2), "Window Seat", "Kettle Song") +
             album("Echo Parade", "Neon Garden", "2022", "Synthpop", cover(0xFFD6247A, 0xFF2D1B69, 3), "Midnight Bloom", "Glass Avenue") +
-            album("Saltwater Radio", "Coastline", "2014", "Ambient", cover(0xFF2E8B57, 0xFF0B4F6C, 4), "Long Way North") +
+            // Saved twice: on the album and again on its deluxe edition (long enough to compare by sound).
+            album("Saltwater Radio", "Coastline", "2014", "Ambient", cover(0xFF2E8B57, 0xFF0B4F6C, 4), DUPLICATE, seconds = 15) +
+            album("Saltwater Radio", DUPLICATE_ALBUM, "2015", "Ambient", cover(0xFF2E8B57, 0xFF0B4F6C, 2), DUPLICATE, seconds = 15) +
             album(COMPOSER, "Ironclad", "2014", "Soundtrack", cover(0xFF3B3B3B, 0xFFB5651D, 1), "Foundry", "Steel Rain") +
             album(COMPOSER, "Ironclad Breach", "2015", "Soundtrack", cover(0xFF5A1E1E, 0xFF1E1E1E, 4), "Breach Point") +
             album(COMPOSER, "Ironclad Aftershock", "2016", "Soundtrack", cover(0xFF1E3A5A, 0xFF101010, 0), "Aftershock") +

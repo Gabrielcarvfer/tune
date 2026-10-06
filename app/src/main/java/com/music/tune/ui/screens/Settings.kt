@@ -135,14 +135,22 @@ private fun LazyListScope.collectionSettings(vm: MainViewModel, actions: Actions
     item {
         val lib by vm.library.collectAsState()
         val organize by vm.autoOrganize.collectAsState()
+        // Read as state, so this updates as soon as all files access is granted
+        // (it's checked again on coming back from the system settings).
+        val allFiles by vm.allFilesAccess.collectAsState()
+        val folder by vm.libraryFolder.collectAsState()
+        val root = Organizer.rootFor(folder, allFiles)
         Column(Modifier.padding(horizontal = 24.dp)) {
             Toggle("move files after editing info", organize) { vm.setAutoOrganize(it) }
             Note(
-                vm.organizeRoot?.let { "$it/<album artist>/<album>/<number>-<title>.<ext>" }
-                    ?: "Unavailable for this music folder: files stay where they are.",
+                when {
+                    root != null -> "$root/<album artist>/<album>/<number>-<title>.<ext>"
+                    !allFiles -> "Unavailable for this music folder until you allow all files access (under music folder, above). Until then, files stay where they are."
+                    else -> "Unavailable for this music folder: files stay where they are."
+                },
             )
             VSpace(12)
-            MetroButton("organize whole collection", enabled = lib.songs.isNotEmpty() && vm.organizeRoot != null) {
+            MetroButton("organize whole collection", enabled = lib.songs.isNotEmpty() && root != null) {
                 actions.organize(lib.songs)
             }
         }
@@ -281,6 +289,11 @@ private fun LazyListScope.aboutSettings(vm: MainViewModel, actions: Actions) {
             runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty()
         }
         Column(Modifier.padding(horizontal = 24.dp)) {
+            androidx.compose.foundation.Image(
+                androidx.compose.ui.res.painterResource(com.music.tune.R.drawable.tune_logo),
+                contentDescription = "Tune logo",
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp).size(70.dp, 80.dp).testTag("about:logo"),
+            )
             MText("Tune $version", MetroType.normal)
             VSpace(8)
             Note(
@@ -440,10 +453,10 @@ private fun LibraryFolderSettings(vm: MainViewModel) {
         MText(
             when {
                 folder == null -> "Songs anywhere on the phone are in your collection. Organized files are moved into Music."
-                vm.organizeRoot != null ->
+                Organizer.rootFor(folder, allFiles) != null ->
                     "Only songs in this folder and its subfolders are in your collection. Organized files stay inside it."
                 else -> "Only songs in this folder and its subfolders are in your collection. " +
-                    "Files here are never moved: to organize inside this folder, allow all files access."
+                    "Files here aren't moved until you allow all files access."
             },
             MetroType.small, color = c.subtle, maxLines = 4,
         )

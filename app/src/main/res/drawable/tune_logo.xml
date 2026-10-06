@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tune's logo, framed tightly (same artwork as the launcher mark, art/tune-logo.svg's crop).
+     The launcher mark: a 2.5D "T" block as a wireframe with parallel "/" struts, magenta to orange.
+     Hidden edges are already removed, so this is plain strokes (also used for the monochrome layer). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="87dp" android:height="100dp"
+    android:viewportWidth="57.6" android:viewportHeight="66.2">
+    <group android:translateX="-25.8" android:translateY="-22.7">
+    <path
+        android:pathData="M69.44,59.54 L69.44,49.29 M69.44,49.29 L78.34,41.82 M78.34,41.82 L78.34,52.07 M78.34,52.07 L69.44,59.54 M57.24,83.8 L57.24,55.1 M66.14,58.4 L66.14,76.33 M66.14,76.33 L57.24,83.8 M69.44,49.29 L30.92,35.27 M30.92,35.27 L39.82,27.8 M39.82,27.8 L78.34,41.82 M30.92,35.27 L30.92,45.52 M30.92,45.52 L43.12,49.96 M43.12,49.96 L43.12,78.66 M43.12,78.66 L57.24,83.8 M57.24,55.1 L69.44,59.54 M57.24,55.1 L57.24,44.85 M43.12,49.96 L43.12,39.71 M57.24,69.45 L43.12,64.31 M69.44,49.29 L57.24,55.1 M57.24,44.85 L43.12,49.96 M43.12,39.71 L30.92,45.52 M57.24,55.1 L43.12,64.31 M57.24,69.45 L43.12,78.66"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="54" android:startY="27.8"
+                android:endX="54" android:endY="83.8">
+                <item android:offset="0" android:color="#FFE6168A" />
+                <item android:offset="1" android:color="#FFF88E1E" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    </group>
+</vector>

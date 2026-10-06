@@ -219,7 +219,7 @@ class SettingsLayoutTest : TuneTest() {
         "collection" to listOf("music folder", "choose folder", "move files after editing info", "identifying songs", "refresh collection"),
         "network" to listOf("network kill switch", "acoustid api key", "get a key"),
         "appearance" to listOf("background", "accent colour", "accent colour for titles", "show albums as a grid"),
-        "about" to listOf("open-source licences", "privacy policy"),
+        "about" to listOf("export settings", "open-source licences", "privacy policy"),
     )
 
     @Test fun eachPageHasItsSettings() {
@@ -230,6 +230,12 @@ class SettingsLayoutTest : TuneTest() {
                 text(item)
             }
         }
+    }
+
+    @Test fun aboutShowsTheLogo() {
+        openSettings("about")
+        scrollTo(androidx.compose.ui.test.hasTestTag("about:logo"))
+        tag("about:logo").assertExists()
     }
 
     @Test fun withoutAKeyCollectionPointsToTheNetworkPage() {

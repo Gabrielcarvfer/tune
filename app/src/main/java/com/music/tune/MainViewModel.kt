@@ -277,9 +277,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun hasAllFilesAccess() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()
 
-    /** Re-checks permissions the user may have changed in system settings. */
-    fun refreshPermissions() {
-        _allFilesAccess.value = hasAllFilesAccess()
+    /**
+     * Re-checks permissions the user may have changed in system settings (on
+     * returning to the app). [granted] stands in for the system's answer in tests.
+     */
+    fun refreshPermissions(granted: Boolean = hasAllFilesAccess()) {
+        _allFilesAccess.value = granted
     }
 
     /**

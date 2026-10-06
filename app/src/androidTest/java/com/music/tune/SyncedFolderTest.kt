@@ -55,7 +55,23 @@ class SyncedFolderTest : TuneTest() {
         scrollTo(hasText("allow all files access"))
         text("allow all files access")
         scrollTo(hasText("organize whole collection"))
-        text("Unavailable for this music folder: files stay where they are.")
+        text("Unavailable for this music folder until you allow all files access", substring = true)
+    }
+
+    @Test fun grantingAllFilesAccessEnablesOrganizingRightAway() {
+        assumeFalse("needs All files access off", allFiles)
+        onVm { setLibraryFolder(LibraryFolder.fromPath(synced.path, Organizer.primaryRoot)) }
+        openSettings("collection")
+        scrollTo(hasText("organize whole collection"))
+        text("Unavailable for this music folder until you allow all files access", substring = true)
+        // Coming back from the system's all-files-access page re-checks the
+        // permission; the page follows without being left or toggled.
+        onVm { refreshPermissions(granted = true) }
+        compose.waitForIdle()
+        scrollTo(hasText("organize whole collection"))
+        text("<album artist>/<album>/<number>-<title>.<ext>", substring = true)
+        assertTrue(!isShown("Unavailable for this music folder", substring = true))
+        onVm { refreshPermissions(granted = false) }
     }
 
     @Test fun organizingRenamesInPlaceInsideTheSyncedFolder() {

@@ -28,6 +28,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,7 +76,7 @@ fun SettingsScreen(vm: MainViewModel, actions: Actions) {
                     "collection" -> collectionSettings(vm, actions)
                     "network" -> networkSettings(vm)
                     "appearance" -> appearanceSettings(vm)
-                    else -> aboutSettings(vm)
+                    else -> aboutSettings(vm, actions)
                 }
             }
         }
@@ -268,7 +270,10 @@ private fun LazyListScope.appearanceSettings(vm: MainViewModel) {
     }
 }
 
-private fun LazyListScope.aboutSettings(vm: MainViewModel) {
+private fun LazyListScope.aboutSettings(vm: MainViewModel, actions: Actions) {
+    item { Section("backup") }
+    item { BackupSettings(vm, actions) }
+
     item { Section("tune") }
     item {
         val ctx = LocalContext.current
@@ -291,6 +296,39 @@ private fun LazyListScope.aboutSettings(vm: MainViewModel) {
                 ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Gabrielcarvfer/tune/blob/master/PRIVACY.md")))
             }
         }
+    }
+}
+
+/** Export and import of every setting as one JSON file, e.g. to move to another install. */
+@Composable
+private fun BackupSettings(vm: MainViewModel, actions: Actions) {
+    val scope = rememberCoroutineScope()
+    fun run(done: String, work: suspend () -> Unit) {
+        scope.launch {
+            runCatching { work() }
+                .onSuccess { vm.toast(done) }
+                .onFailure { vm.toast("couldn't: ${it.message ?: it}") }
+        }
+    }
+    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) run("settings exported") { vm.exportSettings(uri) }
+    }
+    val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) actions.overlays.confirm(
+            "import settings?",
+            "Your settings, playlists, history, measured loudness and saved scans are replaced by the file's.",
+            "import",
+        ) { run("settings imported") { vm.importSettings(uri) } }
+    }
+    Column(Modifier.padding(horizontal = 24.dp)) {
+        Note(
+            "Saves every setting (including your AcoustID key and music folder), playlists, history, measured " +
+                "loudness and saved scans to one JSON file, and reads it back, e.g. to move to another install.",
+        )
+        VSpace(10)
+        MetroButton("export settings") { export.launch("tune-settings.json") }
+        VSpace(10)
+        MetroButton("import settings") { import.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
     }
 }
 

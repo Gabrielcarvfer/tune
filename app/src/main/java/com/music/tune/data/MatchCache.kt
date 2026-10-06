@@ -48,6 +48,22 @@ class MatchCache(private val dir: File) {
     /** How many of [songs] have an AcoustID answer saved. */
     fun countLooked(songs: List<Song>): Int = songs.count { lookup(it) != null }
 
+    /** Every saved entry by song id (for exporting settings). */
+    @Synchronized
+    fun all(): Map<String, JSONObject> =
+        dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().mapNotNull { f ->
+            runCatching { f.name.removeSuffix(".json") to JSONObject(f.readText()) }.getOrNull()
+        }.toMap()
+
+    /** Replaces every entry with [entries] (from an export). */
+    @Synchronized
+    fun restore(entries: Map<String, JSONObject>) {
+        dir.listFiles()?.forEach { it.delete() }
+        dir.mkdirs()
+        entries.forEach { (id, e) -> if (id.toLongOrNull() != null) File(dir, "$id.json").writeText(e.toString()) }
+        version++
+    }
+
     @Synchronized
     fun clear() {
         dir.listFiles()?.forEach { it.delete() }

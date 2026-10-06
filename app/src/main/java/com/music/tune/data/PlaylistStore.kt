@@ -56,6 +56,17 @@ class PlaylistStore(context: Context) {
         write(next)
     }
 
+    /** The playlists as stored (for exporting settings). */
+    @Synchronized
+    fun toJson(): JSONArray = runCatching { JSONArray(file.readText()) }.getOrDefault(JSONArray())
+
+    /** Replaces every playlist with [json] (from an export). */
+    @Synchronized
+    fun restore(json: JSONArray) {
+        file.writeText(json.toString())
+        _playlists.value = read()
+    }
+
     private fun read(): List<Playlist> = runCatching {
         if (!file.exists()) return emptyList()
         val arr = JSONArray(file.readText())

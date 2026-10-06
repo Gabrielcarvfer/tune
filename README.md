@@ -302,6 +302,11 @@ Gradle and the emulator start many threads.
 - Editing, moving and deleting files on Android 11+ goes through the system
   consent dialog, which asks once per batch.
 - The app is minSdk 26.
+- Settings → about → backup → **export settings** saves every setting
+  (including the AcoustID key and music folder), playlists, history,
+  measured loudness and saved scans to one JSON file; **import settings**
+  reads it back, e.g. to move to another install. Loudness and scans are
+  keyed by the phone's media ids, so they only carry over on the same phone.
 - Debug builds, local or from CI, are all signed with the same key
   (`tools/signing/debug.keystore`), so a new build installs over the old one
   and keeps its settings, playlists, history and saved fingerprints. Store

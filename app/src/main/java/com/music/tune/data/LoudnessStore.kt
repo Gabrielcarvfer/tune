@@ -69,6 +69,22 @@ class LoudnessStore(private val file: File) {
         Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
     }
 
+    /** The table as stored (for exporting settings). */
+    @Synchronized
+    fun toJson(): JSONObject {
+        flush()
+        return runCatching { JSONObject(file.readText()) }.getOrDefault(JSONObject())
+    }
+
+    /** Replaces the table with [json] (from an export). */
+    @Synchronized
+    fun restore(json: JSONObject) {
+        file.parentFile?.mkdirs()
+        file.writeText(json.toString())
+        entries = null
+        unsaved = 0
+    }
+
     @Synchronized
     fun clear() {
         entries = HashMap()

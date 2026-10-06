@@ -20,6 +20,7 @@ import androidx.lifecycle.viewModelScope
 import com.music.tune.data.AcoustId
 import com.music.tune.data.Album
 import com.music.tune.data.Consolidator
+import com.music.tune.data.SettingsBackup
 import com.music.tune.data.CoverImage
 import com.music.tune.data.Library
 import com.music.tune.data.LibraryFolder
@@ -40,6 +41,7 @@ import com.music.tune.playback.PlayerConnection
 import com.music.tune.playback.VolumeNormalizer
 import com.music.tune.ui.theme.Accents
 import kotlinx.coroutines.Dispatchers
+import org.json.JSONObject
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -619,6 +621,67 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun stopMeasuring() {
         measureJob?.cancel()
+    }
+
+    // --- exporting and importing settings ------------------------------------
+
+    /**
+     * Writes every setting, the playlists, measured loudness and saved scans to
+     * [uri] as one JSON file (see [SettingsBackup]), e.g. to move to another install.
+     */
+    suspend fun exportSettings(uri: android.net.Uri) = withContext(Dispatchers.IO) {
+        val json = SettingsBackup.toJson(
+            SettingsBackup.Contents(prefs.all, playlists.toJson(), loudness.toJson(), matchCache.all()),
+            System.currentTimeMillis(),
+        )
+        getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use {
+            it.write(json.toString(1).toByteArray())
+        }
+    }
+
+    /** Replaces settings and data with an export from [uri], and applies them now. */
+    suspend fun importSettings(uri: android.net.Uri) {
+        val contents = withContext(Dispatchers.IO) {
+            val text = getApplication<Application>().contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+            SettingsBackup.fromJson(JSONObject(text))
+        }
+        stopScan()
+        stopMeasuring()
+        withContext(Dispatchers.IO) {
+            prefs.edit().clear().apply {
+                contents.settings.forEach { (key, v) ->
+                    @Suppress("UNCHECKED_CAST")
+                    when (v) {
+                        is Boolean -> putBoolean(key, v)
+                        is Int -> putInt(key, v)
+                        is Long -> putLong(key, v)
+                        is Float -> putFloat(key, v)
+                        is String -> putString(key, v)
+                        is Set<*> -> putStringSet(key, v as Set<String>)
+                    }
+                }
+            }.commit()
+            contents.playlists?.let { playlists.restore(it) }
+            contents.loudness?.let { loudness.restore(it) }
+            matchCache.restore(contents.scans)
+        }
+        reapplySettings()
+    }
+
+    /** Re-reads every setting into the app's state (after an import). */
+    private fun reapplySettings() {
+        _accent.value = Color(prefs.getInt("accent", Accents.first().second.toArgb()))
+        _themeMode.value = readThemeMode()
+        prefs.getBoolean("offline", false).let { Net.blocked = it; _offline.value = it }
+        _apiKey.value = prefs.getString("acoustid", "").orEmpty()
+        _autoOrganize.value = prefs.getBoolean("organize", prefs.contains("libraryFolder"))
+        _accentTitles.value = prefs.getBoolean("accentTitles", true)
+        _albumGrid.value = prefs.getBoolean("albumGrid", true)
+        _normalize.value = prefs.getBoolean(VolumeNormalizer.PREF, true)
+        _history.value = readHistory()
+        _libraryFolder.value = prefs.getString("libraryFolder", null)?.let { LibraryFolder.fromPath(it, Organizer.primaryRoot) }
+        _scan.value = ScanState(generation = _scan.value.generation + 1)
+        reload()
     }
 
     /** Albums split across one release, from the saved answers; biggest first. */

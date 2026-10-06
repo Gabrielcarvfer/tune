@@ -1,5 +1,4 @@
 <resources>
-    <!-- Dark theme background (a soft grey, not black) and the dark-mode icon background -->
+    <!-- Dark theme background (a soft grey, not black) -->
     <color name="window_bg">#FF2B2B2B</color>
-    <color name="launcher_bg">#FF2B2B2B</color>
 </resources>

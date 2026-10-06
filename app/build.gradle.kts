@@ -5,11 +5,12 @@ plugins {
 }
 
 android {
+    // The code's package; the app's ID on the phone and in Play is applicationId.
     namespace = "com.tune.music"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.tune.music"
+        applicationId = "com.music.tune"
         minSdk = 26
         targetSdk = 35
         // CI passes a growing number for store uploads; local builds are 1.

@@ -6,7 +6,7 @@ set -e
 cd "$(dirname "$0")/../.."
 
 # Without all files access, so the "allow all files access" steps show up.
-adb shell appops set com.tune.music MANAGE_EXTERNAL_STORAGE default || true
+adb shell appops set com.music.tune MANAGE_EXTERNAL_STORAGE default || true
 # A tidy status bar.
 adb shell settings put global sysui_demo_allowed 1
 demo() { adb shell am broadcast -a com.android.systemui.demo -e command "$@" > /dev/null; }

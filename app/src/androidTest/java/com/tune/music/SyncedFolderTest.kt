@@ -25,7 +25,7 @@ import java.io.File
  * Android kills the app when All files access changes, so it can't be toggled
  * from a test: each test runs only in the matching state. To run the in-place
  * test, grant it first:
- *   adb shell appops set com.tune.music MANAGE_EXTERNAL_STORAGE allow
+ *   adb shell appops set com.music.tune MANAGE_EXTERNAL_STORAGE allow
  */
 @RunWith(AndroidJUnit4::class)
 class SyncedFolderTest : TuneTest() {

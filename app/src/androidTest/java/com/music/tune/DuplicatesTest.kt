@@ -12,6 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -66,8 +67,9 @@ class DuplicatesTest : TuneTest() {
         compose.onNodeWithContentDescription("delete").performClick()
         text("\"Crystal Dolphin (Copy)\" will be deleted from your phone.")
         tap("delete")
-        allowSystemDialog()
-        waitFor("copy deleted") { vm.library.value.songs.none { it.title == "Crystal Dolphin (Copy)" } }
+        // Slow emulators (CI) can take a while to bring up the system's dialog.
+        assertTrue("system asked for consent", allowSystemDialog(timeoutMs = 20_000))
+        waitFor("copy deleted", 30_000) { vm.library.value.songs.none { it.title == "Crystal Dolphin (Copy)" } }
         text("No duplicates: every song is here once.")
         assertNull(vm.library.value.songs.firstOrNull { it.title == "Crystal Dolphin (Copy)" })
         assertEquals("the original stays", 1, vm.library.value.songs.count { it.title == "Crystal Dolphin" })
